@@ -12,8 +12,7 @@ enum class Platform(
     SPOTIFY("spotify", "spotify", "com.spotify.music", "spotify"),
     YOUTUBE_MUSIC("youtube_music", "youtube music", "com.google.android.apps.youtube.music", "youtubeMusic"),
     TIDAL("tidal", "tidal", "com.aspiro.tidal", "tidal"),
-    DEEZER("deezer", "deezer", "deezer.android.app", "deezer"),
-    SOUNDCLOUD("soundcloud", "soundcloud", "com.soundcloud.android", "soundcloud");
+    DEEZER("deezer", "deezer", "deezer.android.app", "deezer");
 
     fun searchUrl(query: String): String {
         val q = URLEncoder.encode(query, "UTF-8")
@@ -23,7 +22,6 @@ enum class Platform(
             YOUTUBE_MUSIC -> "https://music.youtube.com/search?q=$q"
             TIDAL -> "https://tidal.com/search?q=$q"
             DEEZER -> "https://www.deezer.com/search/$q"
-            SOUNDCLOUD -> "https://soundcloud.com/search?q=$q"
         }
     }
 

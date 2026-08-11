@@ -14,7 +14,6 @@ object LinkOwnership {
         "https://music.apple.com/us/album/x/1/",
         "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
         "https://tidal.com/browse/track/1",
-        "https://soundcloud.com/x/y",
     )
 
     fun blockers(context: Context): List<Claim> {

@@ -17,9 +17,6 @@ object LinkParser {
         "deezer.com" to Platform.DEEZER,
         "www.deezer.com" to Platform.DEEZER,
         "dzr.page.link" to Platform.DEEZER,
-        "soundcloud.com" to Platform.SOUNDCLOUD,
-        "m.soundcloud.com" to Platform.SOUNDCLOUD,
-        "on.soundcloud.com" to Platform.SOUNDCLOUD,
     )
 
     private val universalHosts = setOf("song.link", "album.link", "odesli.co", "pods.link", "crossfeed.live")

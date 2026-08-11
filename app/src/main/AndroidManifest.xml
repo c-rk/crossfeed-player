@@ -19,7 +19,6 @@
         <package android:name="com.google.android.apps.youtube.music" />
         <package android:name="com.aspiro.tidal" />
         <package android:name="deezer.android.app" />
-        <package android:name="com.soundcloud.android" />
         <package android:name="com.maxmpz.audioplayer" />
         <package android:name="com.maxmpz.audioplayer.unlock" />
         <intent>
@@ -82,9 +81,6 @@
                 <data android:scheme="https" android:host="deezer.com" />
                 <data android:scheme="https" android:host="www.deezer.com" />
                 <data android:scheme="https" android:host="dzr.page.link" />
-                <data android:scheme="https" android:host="soundcloud.com" />
-                <data android:scheme="https" android:host="m.soundcloud.com" />
-                <data android:scheme="https" android:host="on.soundcloud.com" />
                 <data android:scheme="https" android:host="song.link" />
                 <data android:scheme="https" android:host="album.link" />
                 <data android:scheme="https" android:host="odesli.co" />

@@ -41,7 +41,6 @@ object SourceFilter {
         "com.maxmpz.audioplayer",
         "com.aspiro.tidal",
         "deezer.android.app",
-        "com.soundcloud.android",
         "com.amazon.mp3",
         "com.bandcamp.android",
         "org.moire.ultrasonic",
