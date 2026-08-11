@@ -1,0 +1,890 @@
+package dev.crossfeed.ui
+
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import dev.crossfeed.BuildConfig
+import dev.crossfeed.core.Artwork
+import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.Router
+import dev.crossfeed.core.history.Stats
+import dev.crossfeed.core.net.Account
+import dev.crossfeed.core.net.Alerts
+import dev.crossfeed.core.net.Circle
+import dev.crossfeed.core.net.Notifier
+import dev.crossfeed.core.net.Person
+import dev.crossfeed.core.net.Post
+import dev.crossfeed.core.net.Presence
+import dev.crossfeed.core.net.SavedTrack
+import dev.crossfeed.core.net.Social
+import dev.crossfeed.core.net.Suspension
+import dev.crossfeed.ui.theme.LocalGlass
+import dev.crossfeed.ui.theme.Shapes
+import dev.crossfeed.ui.theme.Space
+import dev.crossfeed.ui.theme.Type
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@Composable
+fun SocialScreen() {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    val scope = rememberCoroutineScope()
+    val prefs = remember { Prefs(context) }
+    val account = remember { Account(context) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    remember { Suspension.load(context) }
+    val suspended = Suspension.active
+
+    var handle by remember { mutableStateOf(account.handle.orEmpty()) }
+    var registered by remember { mutableStateOf(account.exists) }
+    var posts by remember { mutableStateOf(emptyList<Post>()) }
+    var circle by remember { mutableStateOf(Circle(emptyList(), emptyList(), emptyList())) }
+    var alerts by remember { mutableStateOf(Alerts(emptyList(), 0, 0)) }
+    var saves by remember { mutableStateOf(emptyList<SavedTrack>()) }
+    var live by remember { mutableStateOf(emptyList<dev.crossfeed.core.net.Live>()) }
+    var savedKeys by remember { mutableStateOf(emptySet<String>()) }
+    var note by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var reload by remember { mutableIntStateOf(0) }
+    var showNearby by remember { mutableStateOf(false) }
+    var showAlerts by remember { mutableStateOf(false) }
+    var showFeed by remember { mutableStateOf(false) }
+    var sharePlays by remember { mutableStateOf(prefs.sharePlays) }
+    var broadcast by remember { mutableStateOf(prefs.broadcast) }
+    var baseUrl by remember { mutableStateOf(prefs.baseUrl) }
+    var invite by remember { mutableStateOf("") }
+
+    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        broadcast = granted
+        prefs.broadcast = granted
+        scope.launch { Presence.push(context) }
+    }
+    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    fun react(post: Post, emoji: String?) {
+        posts = posts.map { if (it.id == post.id) it.withReaction(emoji) else it }
+        scope.launch { runCatching { Social.react(context, post.id, emoji.orEmpty()) } }
+    }
+
+    fun save(post: Post) {
+        savedKeys = savedKeys + post.id
+        scope.launch {
+            runCatching { Social.save(context, post) }
+                .onSuccess {
+                    note = "saved ${post.title}"
+                    saves = runCatching { Social.saved(context) }.getOrDefault(saves)
+                }
+        }
+    }
+
+    LaunchedEffect(registered, reload) {
+        if (!registered) return@LaunchedEffect
+        runCatching { posts = Social.feed(context) }.onFailure { note = it.message }
+        runCatching { circle = Social.circle(context) }
+        runCatching { saves = Social.saved(context) }
+    }
+
+    LaunchedEffect(registered, broadcast) {
+        if (registered) Presence.push(context)
+    }
+
+    LaunchedEffect(registered) {
+        if (!registered) return@LaunchedEffect
+        Notifier.channel(context)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    LaunchedEffect(registered, lifecycle) {
+        if (!registered) return@LaunchedEffect
+        var cursor = 0L
+        var quiet = 0
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                val result = runCatching { Social.sync(context, cursor) }
+                result.getOrNull()?.let { sync ->
+                    cursor = sync.now
+                    sync.live?.let { live = it }
+                    alerts = alerts.copy(unread = sync.unread, requests = sync.requests)
+                    if (sync.posts.isNotEmpty()) {
+                        quiet = 0
+                        val fresh = sync.posts.associateBy { it.id }
+                        posts = (sync.posts + posts.filterNot { it.id in fresh.keys })
+                            .sortedByDescending { it.updatedAt }
+                            .take(60)
+                    } else {
+                        quiet++
+                    }
+                }
+                delay(if (quiet >= 4) 60_000L else 20_000L)
+            }
+        }
+    }
+
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Space.large),
+    ) {
+        Spacer(Modifier.height(Space.medium))
+        Text("auxshare", style = Type.wordmark, color = glass.ink)
+        Text(
+            if (registered) "@${account.handle}" else "what your people are playing",
+            style = Type.body,
+            color = glass.inkMuted,
+        )
+
+        if (registered && suspended) {
+            Spacer(Modifier.height(Space.medium))
+            GlassCard(strong = true) {
+                SectionHeader("this handle is suspended")
+                Text(
+                    Suspension.reason ?: "an admin suspended this handle.",
+                    style = Type.body,
+                    color = glass.warning,
+                    modifier = Modifier.padding(bottom = Space.small),
+                )
+                Text(
+                    "the feed, nearby and sharing are paused, and nobody sees what you play. " +
+                        "your listening history on this phone is untouched. the handle cannot be " +
+                        "wiped while it is suspended.",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                )
+            }
+        }
+
+        if (!registered) {
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("pick a handle")
+                Text(
+                    "one handle, no password, no email. the phone keeps the key. " +
+                        "nothing is shared until you turn sharing on below.",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(bottom = Space.tight),
+                )
+                Text(
+                    "pick it carefully. a handle is permanent, and the only way to change it is " +
+                        "to wipe the account and start again.",
+                    style = Type.footnote,
+                    color = glass.warning,
+                    modifier = Modifier.padding(bottom = Space.small),
+                )
+                SearchField(
+                    value = handle,
+                    onValueChange = { handle = it },
+                    placeholder = "handle",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(Space.small))
+                GlassButton(
+                    label = if (busy) "creating…" else "create my handle",
+                    filled = true,
+                    enabled = !busy && handle.trim().length >= 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        busy = true
+                        note = null
+                        scope.launch {
+                            runCatching { Account.register(context, handle.trim()) }
+                                .onSuccess {
+                                    handle = it
+                                    registered = true
+                                }
+                                .onFailure { note = it.message }
+                            busy = false
+                        }
+                    },
+                )
+            }
+        }
+
+        note?.let {
+            Spacer(Modifier.height(Space.small))
+            Text(it, style = Type.footnote, color = glass.inkMuted)
+        }
+
+        if (registered && !suspended) {
+            Spacer(Modifier.height(Space.medium))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Space.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(Modifier.weight(1f))
+                Box {
+                    IconAction(glyph = Glyph.BELL, active = alerts.unread > 0) {
+                        showAlerts = true
+                        scope.launch {
+                            runCatching { Social.markAlertsSeen(context) }
+                            alerts = alerts.copy(unread = 0)
+                        }
+                    }
+                    if (alerts.unread > 0) {
+                        Box(
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .size(15.dp)
+                                .clip(CircleShape)
+                                .background(glass.warning),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "${alerts.unread.coerceAtMost(9)}",
+                                style = Type.caps,
+                                color = Color.White,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (circle.incoming.isNotEmpty()) {
+                Spacer(Modifier.height(Space.medium))
+                GlassCard {
+                    SectionHeader("wants to connect")
+                    for (person in circle.incoming) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = Space.tight),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "@${person.handle}",
+                                style = Type.headline,
+                                color = glass.ink,
+                                modifier = Modifier.weight(1f),
+                            )
+                            GlassButton(label = "no", compact = true, onClick = {
+                                scope.launch {
+                                    runCatching { Social.respond(context, person.id, false) }
+                                    reload++
+                                }
+                            })
+                            Spacer(Modifier.size(Space.tight))
+                            GlassButton(label = "yes", compact = true, filled = true, onClick = {
+                                scope.launch {
+                                    runCatching { Social.respond(context, person.id, true) }
+                                    reload++
+                                }
+                            })
+                        }
+                    }
+                }
+            }
+
+            if (live.isNotEmpty()) {
+                Spacer(Modifier.height(Space.medium))
+                LiveRow(live) { entry ->
+                    scope.launch { Router.play(context, entry.title, entry.artist) }
+                }
+            }
+
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("the feed") {
+                    Text("${posts.size}", style = Type.footnote, color = glass.inkFaint)
+                }
+                if (posts.isEmpty()) {
+                    Text(
+                        "nothing yet. add a friend by handle below, or turn sharing on and play something.",
+                        style = Type.body,
+                        color = glass.inkMuted,
+                        modifier = Modifier.padding(vertical = Space.small),
+                    )
+                }
+                for (post in posts.take(FEED_PREVIEW)) {
+                    PostCard(
+                        post = post,
+                        saved = post.id in savedKeys,
+                        onReact = { emoji -> react(post, emoji) },
+                        onListen = { scope.launch { Router.play(context, post.title, post.artist) } },
+                        onOpen = { scope.launch { Router.play(context, post.title, post.artist) } },
+                        onSave = { save(post) },
+                        onRemove = if (post.self) {
+                            {
+                                scope.launch {
+                                    runCatching { Social.remove(context, post.id) }
+                                    reload++
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                    )
+                }
+                if (posts.size >= FEED_PREVIEW) {
+                    Spacer(Modifier.height(Space.small))
+                    GlassButton(
+                        label = "open the feed",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { showFeed = true },
+                    )
+                }
+            }
+
+            if (saves.isNotEmpty()) {
+                Spacer(Modifier.height(Space.medium))
+                GlassCard {
+                    SectionHeader("saved") {
+                        Text("${saves.size}", style = Type.footnote, color = glass.inkFaint)
+                    }
+                    for (track in saves) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch { Router.play(context, track.title, track.artist) }
+                                }
+                                .padding(vertical = Space.tight),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            UrlArt(track.art, track.title, 40.dp)
+                            Column(Modifier.weight(1f).padding(start = Space.small)) {
+                                Text(
+                                    track.title,
+                                    style = Type.callout,
+                                    color = glass.ink,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    track.artist ?: "unknown artist",
+                                    style = Type.footnote,
+                                    color = glass.inkFaint,
+                                    maxLines = 1,
+                                )
+                            }
+                            Box(
+                                Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(glass.fill)
+                                    .clickable {
+                                        scope.launch {
+                                            runCatching { Social.unsave(context, track) }
+                                            saves = saves.filterNot { it.title == track.title }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("×", style = Type.headline, color = glass.inkMuted)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("your people")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SearchField(
+                        value = invite,
+                        onValueChange = { invite = it },
+                        placeholder = "add by handle",
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.size(Space.tight))
+                    GlassButton(
+                        label = "add",
+                        enabled = invite.trim().length >= 2,
+                        onClick = {
+                            scope.launch {
+                                runCatching { Social.request(context, handle = invite.trim()) }
+                                    .onSuccess {
+                                        note = if (it == "accepted") "connected" else "request sent"
+                                        invite = ""
+                                    }
+                                    .onFailure { error -> note = error.message }
+                                reload++
+                            }
+                        },
+                    )
+                }
+                for (person in circle.accepted) {
+                    PersonRow(person, "connected") {
+                        scope.launch {
+                            runCatching { Social.unfriend(context, person.id) }
+                            reload++
+                        }
+                    }
+                }
+                for (person in circle.outgoing) {
+                    PersonRow(person, "waiting") {
+                        scope.launch {
+                            runCatching { Social.unfriend(context, person.id) }
+                            reload++
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!suspended) {
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("sharing")
+                ToggleRow(
+                    title = "share what i play",
+                    subtitle = "posts the track, artist and how long, never your whole history",
+                    checked = sharePlays && registered,
+                    onChange = {
+                        sharePlays = it
+                        prefs.sharePlays = it
+                    },
+                )
+                ToggleRow(
+                    title = "let people find me nearby",
+                    subtitle = "rounds your position to ~110 m; others only ever see a distance band",
+                    checked = broadcast && registered,
+                    onChange = { value ->
+                        if (value && !Presence.allowed(context)) {
+                            askLocation.launch(Presence.PERMISSION)
+                        } else {
+                            broadcast = value
+                            prefs.broadcast = value
+                            scope.launch { Presence.push(context) }
+                        }
+                    },
+                )
+            }
+        }
+
+        if (BuildConfig.DEBUG) {
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("server")
+                Text(
+                    "debug builds only. release builds talk to the shipped address and never " +
+                        "show this box.",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(bottom = Space.small),
+                )
+                SearchField(
+                    value = baseUrl,
+                    onValueChange = { baseUrl = it },
+                    placeholder = "https://…",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(Space.small))
+                GlassButton(
+                    label = "save",
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        prefs.baseUrl = baseUrl
+                        baseUrl = prefs.baseUrl
+                        note = "pointing at ${prefs.baseUrl}"
+                        reload++
+                    },
+                )
+            }
+        }
+
+        if (registered && !suspended) {
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("account")
+                Text(
+                    "wiping removes your handle, posts, saves, reactions, sessions and every " +
+                        "connection from the crossfeed server. it cannot be undone.",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(bottom = Space.small),
+                )
+                GlassButton(
+                    label = "wipe my account",
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        scope.launch {
+                            runCatching { Social.forget(context) }
+                            account.forget()
+                            registered = false
+                            posts = emptyList()
+                            saves = emptyList()
+                            note = "everything on the server is gone"
+                        }
+                    },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(110.dp))
+    }
+
+    if (registered && !suspended) {
+        Box(Modifier.fillMaxSize()) {
+            NearbyButton(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = Space.large, bottom = 84.dp),
+                onClick = { showNearby = true },
+            )
+        }
+    }
+
+    if (showFeed) {
+        FeedScreen(
+            first = posts,
+            savedKeys = savedKeys,
+            onClose = { showFeed = false },
+            onReact = { post, emoji ->
+                react(post, emoji)
+                post.withReaction(emoji)
+            },
+            onSave = { save(it) },
+            onRemoved = { reload++ },
+        )
+    }
+
+    if (showAlerts) {
+        AlertsDialog(alerts = alerts, onClose = { showAlerts = false })
+    }
+
+    if (showNearby) {
+        NearbyDialog(onDismiss = { showNearby = false }, onChanged = { reload++ })
+    }
+
+}
+
+@Composable
+private fun AlertsDialog(alerts: Alerts, onClose: () -> Unit) {
+    val glass = LocalGlass.current
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
+        GlassCard(strong = true) {
+            SectionHeader("reactions")
+            if (alerts.items.isEmpty()) {
+                Text(
+                    "nobody has reacted yet. share something and it will show up here.",
+                    style = Type.body,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(vertical = Space.small),
+                )
+            }
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                for (alert in alerts.items.take(30)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = Space.tight),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(alert.emoji, style = Type.title)
+                        Column(Modifier.weight(1f).padding(start = Space.small)) {
+                            Text(
+                                "@${alert.handle} reacted to ${alert.title}",
+                                style = Type.callout,
+                                color = if (alert.fresh) glass.ink else glass.inkMuted,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(ago(alert.at), style = Type.footnote, color = glass.inkFaint)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(Space.small))
+            GlassButton(label = "done", filled = true, modifier = Modifier.fillMaxWidth(), onClick = onClose)
+        }
+    }
+}
+
+@Composable
+private fun PersonRow(person: Person, state: String, onRemove: () -> Unit) {
+    val glass = LocalGlass.current
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = Space.tight),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("@${person.handle}", style = Type.headline, color = glass.ink)
+            Text(state, style = Type.footnote, color = glass.inkFaint)
+        }
+        Box(
+            Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(glass.fill)
+                .clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("×", style = Type.headline, color = glass.inkMuted)
+        }
+    }
+}
+
+@Composable
+fun PostCard(
+    post: Post,
+    saved: Boolean,
+    onReact: (String?) -> Unit,
+    onListen: () -> Unit,
+    onOpen: () -> Unit,
+    onSave: () -> Unit,
+    onRemove: (() -> Unit)?,
+) {
+    val glass = LocalGlass.current
+    Column(Modifier.fillMaxWidth().padding(vertical = Space.tight)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            UrlArt(post.art, post.title, 46.dp)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable(onClick = onOpen)
+                    .padding(start = Space.small, end = Space.tight),
+            ) {
+                Text(
+                    post.title,
+                    style = Type.callout,
+                    color = glass.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    post.artist ?: "unknown artist",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    post.source?.let {
+                        SourceIcon(it, size = 12.dp)
+                        Spacer(Modifier.size(4.dp))
+                    }
+                    Text(
+                        "@${post.handle} · ${ago(post.updatedAt)} · ${Stats.minutes(post.listenedMs)}" +
+                            if (post.reactions > 0) " · ${post.reactions}" else "",
+                        style = Type.footnote,
+                        color = glass.inkFaint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            IconAction(glyph = Glyph.PLAY, filled = true, diameter = 34.dp, onClick = onListen)
+            Spacer(Modifier.size(Space.tight))
+            IconAction(glyph = Glyph.BOOKMARK, active = saved, diameter = 34.dp, onClick = onSave)
+            onRemove?.let {
+                Spacer(Modifier.size(Space.tight))
+                Box(
+                    Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(glass.fill)
+                        .clickable(onClick = it),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("×", style = Type.callout, color = glass.inkMuted)
+                }
+            }
+        }
+        Spacer(Modifier.height(Space.tight))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (emoji in Social.emojis) {
+                Reaction(
+                    emoji = emoji,
+                    count = post.counts[emoji] ?: 0,
+                    active = post.mine == emoji,
+                ) { onReact(if (post.mine == emoji) null else emoji) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Reaction(emoji: String, count: Int, active: Boolean, onClick: () -> Unit) {
+    val glass = LocalGlass.current
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(if (active) glass.accent.copy(alpha = 0.35f) else glass.fill)
+            .border(1.dp, if (active) glass.accent else glass.strokeSoft, CircleShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(emoji, style = Type.callout, color = glass.ink)
+        if (count > 0) {
+            Text(
+                "$count",
+                style = Type.footnote,
+                color = if (active) glass.ink else glass.inkMuted,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+    }
+}
+
+@Composable
+fun UrlArt(url: String?, title: String, size: Dp, round: Boolean = false) {
+    val glass = LocalGlass.current
+    val shape = if (round) CircleShape else Shapes.tile
+    var bitmap by remember(url) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(url) {
+        bitmap = url?.let { Artwork.loadRemote(it) }?.asImageBitmap()
+    }
+    Box(
+        Modifier
+            .size(size)
+            .clip(shape)
+            .background(glass.fill)
+            .border(1.dp, glass.strokeSoft, shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        val image = bitmap
+        if (image != null) {
+            Image(
+                bitmap = image,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(size).clip(shape),
+            )
+        } else {
+            Text(title.take(1).uppercase(), style = Type.headline, color = glass.inkFaint)
+        }
+    }
+}
+
+@Composable
+private fun NearbyButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val glass = LocalGlass.current
+    Box(
+        modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(glass.hot))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(26.dp)) {
+            val centre = Offset(size.width / 2, size.height / 2)
+            for (ring in 1..3) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.32f + 0.2f * (3 - ring)),
+                    radius = size.minDimension / 2 * ring / 3f,
+                    center = centre,
+                    style = Stroke(width = 2.2f),
+                )
+            }
+            drawCircle(Color.White, size.minDimension * 0.11f, centre)
+        }
+    }
+}
+
+@Composable
+private fun LiveRow(entries: List<dev.crossfeed.core.net.Live>, onPlay: (dev.crossfeed.core.net.Live) -> Unit) {
+    val glass = LocalGlass.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Space.small),
+    ) {
+        for (entry in entries) {
+            Column(
+                Modifier
+                    .width(74.dp)
+                    .clickable { onPlay(entry) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(glass.hot))
+                        .padding(2.5.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(59.dp)
+                            .clip(CircleShape)
+                            .background(glass.tile),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        UrlArt(entry.art, entry.title, 55.dp, round = true)
+                    }
+                }
+                Text(
+                    if (entry.self) "you" else "@${entry.handle}",
+                    style = Type.footnote,
+                    color = glass.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    entry.title,
+                    style = Type.footnote,
+                    color = glass.inkFaint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+fun ago(millis: Long): String {
+    val gap = System.currentTimeMillis() - millis
+    return when {
+        gap < 60_000 -> "now"
+        gap < 3_600_000 -> "${gap / 60_000}m ago"
+        gap < 86_400_000 -> "${gap / 3_600_000}h ago"
+        else -> "${gap / 86_400_000}d ago"
+    }
+}
+
+private const val FEED_PREVIEW = 4
