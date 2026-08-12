@@ -64,6 +64,7 @@ fun PlayerScreen() {
     var category by rememberSaveable { mutableStateOf(Category.SONGS) }
     var grid by rememberSaveable { mutableStateOf(false) }
     var openKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var folderRoot by rememberSaveable { mutableStateOf<String?>(null) }
 
     var tracks by remember { mutableStateOf(emptyList<Track>()) }
     var buckets by remember { mutableStateOf(emptyList<Bucket>()) }
@@ -78,6 +79,11 @@ fun PlayerScreen() {
         } else if (category == Category.SONGS) {
             tracks = LocalBrowse.songs(context)
             buckets = emptyList()
+        } else if (category == Category.FOLDERS) {
+            val root = folderRoot ?: LocalBrowse.folderRoot(context).also { folderRoot = it }
+            val (subs, here) = LocalBrowse.folder(context, openKey ?: root)
+            buckets = subs
+            tracks = here
         } else if (openKey != null) {
             tracks = LocalBrowse.tracksIn(context, category, openKey!!)
             buckets = emptyList()
@@ -94,13 +100,20 @@ fun PlayerScreen() {
         Spacer(Modifier.height(Space.medium))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(openKey ?: "player", style = Type.wordmark, color = glass.ink, maxLines = 1)
+                Text(
+                    openKey?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "player",
+                    style = Type.wordmark,
+                    color = glass.ink,
+                    maxLines = 1,
+                )
                 Text(
                     when {
                         loading -> "reading your library…"
                         openKey != null -> "${tracks.size} tracks"
                         query.isNotBlank() -> "${tracks.size} results"
                         category == Category.SONGS -> "${tracks.size} tracks"
+                        category == Category.FOLDERS ->
+                            "${buckets.size} folders · ${tracks.size} tracks"
                         else -> "${buckets.size} ${category.name.lowercase()}"
                     },
                     style = Type.body,
@@ -127,7 +140,14 @@ fun PlayerScreen() {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (openKey != null) {
-                    Chip("‹ back", selected = false) { openKey = null }
+                    Chip("‹ back", selected = false) {
+                        openKey = if (category == Category.FOLDERS) {
+                            val up = openKey!!.substringBeforeLast('/', "")
+                            if (up.isBlank() || up.length < (folderRoot?.length ?: 0)) null else up
+                        } else {
+                            null
+                        }
+                    }
                 }
                 for (option in Category.entries) {
                     Chip(option.name.lowercase(), selected = category == option && openKey == null) {

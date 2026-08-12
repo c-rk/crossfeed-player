@@ -49,9 +49,7 @@ object LocalBrowse {
                 Bucket(artist, artist, "${items.size} tracks", items.firstOrNull()?.artwork, items.size)
             }.sortedBy { it.title.lowercase() }
 
-            Category.FOLDERS -> tracks.groupBy { folderOf(it.ref) }.map { (folder, items) ->
-                Bucket(folder, folder.substringAfterLast('/'), folder, items.firstOrNull()?.artwork, items.size)
-            }.sortedBy { it.title.lowercase() }
+            Category.FOLDERS -> emptyList()
 
             Category.SONGS -> emptyList()
         }
@@ -76,14 +74,56 @@ object LocalBrowse {
                     500,
                 )
 
-                Category.FOLDERS -> query(context, null, null, "${MediaStore.Audio.Media.TITLE} ASC", 4000)
-                    .filter { folderOf(it.ref) == key }
+                Category.FOLDERS -> emptyList()
 
                 Category.SONGS -> emptyList()
             }
         }
 
-    private fun folderOf(ref: String): String = ref.substringBeforeLast('/', "").ifBlank { "phone" }
+    private fun dirOf(track: Track): String? = track.path?.substringBeforeLast('/', "")?.takeIf { it.isNotBlank() }
+
+    suspend fun folderRoot(context: Context): String = withContext(Dispatchers.IO) {
+        val dirs = query(context, null, null, "${MediaStore.Audio.Media.TITLE} ASC", 4000).mapNotNull { dirOf(it) }
+        if (dirs.isEmpty()) return@withContext ""
+        var common = dirs.first().split('/')
+        for (dir in dirs) {
+            val parts = dir.split('/')
+            var keep = 0
+            while (keep < common.size && keep < parts.size && common[keep] == parts[keep]) keep++
+            common = common.take(keep)
+        }
+        common.joinToString("/")
+    }
+
+    suspend fun folder(context: Context, path: String): Pair<List<Bucket>, List<Track>> =
+        withContext(Dispatchers.IO) {
+            val all = query(context, null, null, "${MediaStore.Audio.Media.TITLE} ASC", 4000)
+            val here = mutableListOf<Track>()
+            val children = mutableMapOf<String, MutableList<Track>>()
+            val prefix = if (path.isEmpty()) "" else "$path/"
+            for (track in all) {
+                val dir = dirOf(track) ?: continue
+                if (dir == path) {
+                    here.add(track)
+                } else if (prefix.isEmpty() || dir.startsWith(prefix)) {
+                    val rest = dir.removePrefix(prefix)
+                    val name = rest.substringBefore('/')
+                    if (name.isNotBlank()) children.getOrPut(name) { mutableListOf() }.add(track)
+                }
+            }
+            val buckets = children.toList()
+                .sortedBy { it.first.lowercase() }
+                .map { (name, items) ->
+                    Bucket(
+                        key = if (prefix.isEmpty()) name else "$prefix$name",
+                        title = name,
+                        subtitle = "${items.size} tracks",
+                        artwork = items.firstOrNull()?.artwork,
+                        count = items.size,
+                    )
+                }
+            buckets to here.sortedBy { it.title.lowercase() }
+        }
 
     private fun query(
         context: Context,
@@ -121,8 +161,9 @@ object LocalBrowse {
                         durationMs = cursor.getLong(durationCol),
                         artwork = uri.toString(),
                         sourceId = "local",
-                        ref = cursor.getString(dataCol) ?: uri.toString(),
-                    ).let { if (it.ref.startsWith("/")) it.copy(ref = uri.toString()) else it },
+                        ref = uri.toString(),
+                        path = cursor.getString(dataCol)?.takeIf { it.startsWith("/") },
+                    ),
                 )
             }
         }

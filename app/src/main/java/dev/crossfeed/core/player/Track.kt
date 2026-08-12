@@ -9,6 +9,7 @@ data class Track(
     val artwork: String? = null,
     val sourceId: String,
     val ref: String,
+    val path: String? = null,
     val addedBy: String? = null,
 )
 
