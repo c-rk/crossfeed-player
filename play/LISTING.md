@@ -8,10 +8,10 @@ Everything you need to paste in. Assets sit next to this file.
 | Feature graphic | `feature-graphic-1024x500.png` | 1024×500 PNG |
 | Phone screenshots | `screenshots/01…08` | 1080×1920, 9:16, use all eight in order |
 | App bundle | `../dist/crossfeed-player-0.1.0.aab` | versionCode 1004 |
-| Privacy policy | https://crossfeed.pages.dev/privacy.html | |
-| Deletion page | https://crossfeed.pages.dev/delete.html | |
+| Privacy policy | https://crossfeed-core.pages.dev/privacy | |
+| Deletion page | https://crossfeed-core.pages.dev/delete | |
 
-Replace `crossfeed.pages.dev` with your real Pages domain if it differs.
+Replace `crossfeed-core.pages.dev` with your real Pages domain if it differs.
 
 ---
 
@@ -83,8 +83,8 @@ No adverts. No analytics. No trackers. No third-party SDKs. Your listening histo
 **Category** — Music & Audio
 **Tags** — Music player, Media player, Music discovery
 **Contact email** — murdawk@hypixonic.com
-**Website** — https://crossfeed.pages.dev
-**Privacy policy** — https://crossfeed.pages.dev/privacy.html
+**Website** — https://crossfeed-core.pages.dev
+**Privacy policy** — https://crossfeed-core.pages.dev/privacy
 
 ---
 
@@ -145,7 +145,7 @@ Answer honestly here. A mismatch between this and what the app does is what gets
 
 **Is all user data encrypted in transit?** — **Yes** (HTTPS everywhere)
 
-**Do you provide a way for users to request that their data be deleted?** — **Yes**, plus the URL https://crossfeed.pages.dev/delete.html
+**Do you provide a way for users to request that their data be deleted?** — **Yes**, plus the URL https://crossfeed-core.pages.dev/delete
 
 ### Location
 | | |
