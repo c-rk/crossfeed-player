@@ -33,6 +33,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +60,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.crossfeed.core.Artwork
 import dev.crossfeed.core.Router
 import dev.crossfeed.core.export.Export
+import dev.crossfeed.core.export.Restore
 import dev.crossfeed.core.export.Workbook
 import dev.crossfeed.core.history.Dashboard
 import dev.crossfeed.core.history.Days
@@ -96,8 +99,23 @@ fun ListeningScreen() {
     var eraseDays by remember { mutableIntStateOf(30) }
     var confirming by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(false) }
     var exported by remember { mutableStateOf<Export?>(null) }
     var exportNote by remember { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            importing = true
+            scope.launch {
+                runCatching { Restore.fromXlsx(context, uri) }
+                    .onSuccess {
+                        exportNote = Restore.describe(it)
+                        reload++
+                    }
+                    .onFailure { exportNote = it.message ?: "could not read that file" }
+                importing = false
+            }
+        }
+    }
     var showHistory by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showCurate by remember { mutableStateOf(false) }
@@ -504,6 +522,19 @@ fun ListeningScreen() {
                     )
                 }
             }
+            Spacer(Modifier.height(Space.small))
+            GlassButton(
+                label = if (importing) "reading…" else "import .xlsx",
+                enabled = !importing,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { picker.launch(arrayOf(Workbook.MIME, "application/octet-stream", "*/*")) },
+            )
+            Text(
+                "brings a previous export back into this phone. plays already here are left alone.",
+                style = Type.footnote,
+                color = glass.inkFaint,
+                modifier = Modifier.padding(top = Space.tight),
+            )
             exportNote?.let {
                 Spacer(Modifier.height(Space.tight))
                 Text(it, style = Type.footnote, color = glass.inkMuted)

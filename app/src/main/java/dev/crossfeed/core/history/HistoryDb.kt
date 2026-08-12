@@ -472,6 +472,20 @@ class HistoryDb private constructor(context: Context) :
         },
     )
 
+    fun existsAround(title: String, artist: String?, source: String, from: Long, to: Long): Boolean {
+        readableDatabase.rawQuery(
+            "SELECT 1 FROM plays WHERE LOWER(TRIM(title)) = ? AND source = ? " +
+                "AND LOWER(TRIM(IFNULL(artist,''))) = ? AND started_at BETWEEN ? AND ? LIMIT 1",
+            arrayOf(
+                title.trim().lowercase(),
+                source,
+                artist.orEmpty().trim().lowercase(),
+                from.toString(),
+                to.toString(),
+            ),
+        ).use { cursor -> return cursor.moveToFirst() }
+    }
+
     fun findRecent(title: String, artist: String?, source: String, since: Long): Long? {
         readableDatabase.rawQuery(
             "SELECT id FROM plays WHERE LOWER(TRIM(title)) = ? AND source = ? " +

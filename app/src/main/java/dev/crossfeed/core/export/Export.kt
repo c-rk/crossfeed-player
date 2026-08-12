@@ -25,7 +25,7 @@ data class Export(val uri: Uri, val name: String, val bytes: Long, val folder: S
 
 object Workbook {
 
-    private const val MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    const val MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
     suspend fun export(context: Context): Export = withContext(Dispatchers.IO) {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
@@ -60,13 +60,17 @@ object Workbook {
                 play.listenedMs / 1000.0,
                 play.durationMs / 1000.0,
                 if (play.durationMs > 0) play.listenedMs.toDouble() / play.durationMs else null,
+                play.artwork,
             )
         }
         val summary = db.summary("0")
         return listOf(
             Sheet(
                 "plays",
-                listOf("started", "title", "artist", "album", "genre", "app", "listened (s)", "length (s)", "finished"),
+                listOf(
+                    "started", "title", "artist", "album", "genre", "app",
+                    "listened (s)", "length (s)", "finished", "artwork",
+                ),
                 plays,
             ),
             aggSheet(db, "by day", Kind.DAY, "day"),
