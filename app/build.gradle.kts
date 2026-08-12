@@ -4,6 +4,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+fun releaseProperty(name: String): String =
+    project.findProperty(name)?.toString() ?: error("$name is missing from ~/.gradle/gradle.properties")
+
+fun buildNumber(): Int = runCatching {
+    val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+        .directory(rootDir)
+        .redirectErrorStream(true)
+        .start()
+    process.inputStream.bufferedReader().use { it.readText() }.trim().toInt()
+}.getOrDefault(0)
+
 android {
     namespace = "dev.crossfeed"
     compileSdk = 36
@@ -12,16 +23,24 @@ android {
         applicationId = "dev.crossfeed.player"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = 1000 + buildNumber()
         versionName = "0.1.0"
     }
 
     signingConfigs {
         create("local") {
-            storeFile = File(System.getProperty("user.home"), ".android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            val store = File(System.getProperty("user.home"), ".android/crossfeed-release.jks")
+            if (store.exists()) {
+                storeFile = store
+                storePassword = releaseProperty("crossfeedStorePassword")
+                keyAlias = releaseProperty("crossfeedKeyAlias")
+                keyPassword = releaseProperty("crossfeedKeyPassword")
+            } else {
+                storeFile = File(System.getProperty("user.home"), ".android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
