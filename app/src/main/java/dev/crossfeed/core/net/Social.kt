@@ -35,15 +35,20 @@ data class Post(
 }
 
 data class Alert(
+    val postId: String,
     val emoji: String,
     val handle: String,
     val title: String,
     val artist: String?,
+    val art: String?,
+    val source: String?,
     val at: Long,
     val fresh: Boolean,
 )
 
 data class Alerts(val items: List<Alert>, val unread: Int, val requests: Int)
+
+data class Together(val handle: String, val title: String, val artist: String?, val key: String)
 
 data class Sync(
     val now: Long,
@@ -51,6 +56,7 @@ data class Sync(
     val live: List<Live>?,
     val unread: Int,
     val requests: Int,
+    val together: List<Together> = emptyList(),
 )
 
 data class Person(val id: String, val handle: String, val display: String)
@@ -109,6 +115,14 @@ object Social {
             },
             unread = response.optInt("unread"),
             requests = response.optInt("requests"),
+            together = response.optJSONArray("together").map {
+                Together(
+                    handle = it.optString("handle"),
+                    title = it.optString("title"),
+                    artist = it.stringOrNull("artist"),
+                    key = it.optString("key"),
+                )
+            },
         )
     }
 
@@ -131,10 +145,13 @@ object Social {
         Alerts(
             items = response.optJSONArray("items").map {
                 Alert(
+                    postId = it.optString("postId"),
                     emoji = it.optString("emoji"),
                     handle = it.optString("handle"),
                     title = it.optString("title"),
                     artist = it.stringOrNull("artist"),
+                    art = it.stringOrNull("art"),
+                    source = it.stringOrNull("source"),
                     at = it.optLong("at"),
                     fresh = it.optBoolean("fresh"),
                 )

@@ -14,7 +14,9 @@ import dev.crossfeed.R
 object Notifier {
 
     private const val CHANNEL = "reactions"
+    private const val TOGETHER_CHANNEL = "together"
     private const val ID = 4801
+    private const val TOGETHER_ID = 4802
     private const val ACCENT = 0xFFCBF56A.toInt()
     private var lastSeen = 0L
 
@@ -27,6 +29,41 @@ object Notifier {
                 description = "when someone reacts to what you played"
             },
         )
+    }
+
+    fun togetherChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        if (manager.getNotificationChannel(TOGETHER_CHANNEL) != null) return
+        manager.createNotificationChannel(
+            NotificationChannel(TOGETHER_CHANNEL, "listening together", NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { description = "when someone is playing the same song as you" },
+        )
+    }
+
+    private val toldAbout = mutableSetOf<String>()
+
+    fun together(context: Context, handle: String, title: String, key: String) {
+        if (!toldAbout.add("$handle|$key")) return
+        togetherChannel(context)
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val open = PendingIntent.getActivity(
+            context,
+            1,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val body = "@$handle is playing $title right now, same as you"
+        val notification = NotificationCompat.Builder(context, TOGETHER_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_crossfeed)
+            .setColor(ACCENT)
+            .setContentTitle("you two are in sync")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(TOGETHER_ID, notification) }
     }
 
     suspend fun poll(context: Context) {

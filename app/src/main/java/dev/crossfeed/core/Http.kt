@@ -18,6 +18,7 @@ object Http {
         connectTimeoutMs: Int = 4000,
         readTimeoutMs: Int = 5000,
         maxBytes: Int = 512 * 1024,
+        userAgent: String = UA,
     ): Response? {
         var conn: HttpURLConnection? = null
         return try {
@@ -26,7 +27,7 @@ object Http {
                 instanceFollowRedirects = true
                 connectTimeout = connectTimeoutMs
                 readTimeout = readTimeoutMs
-                setRequestProperty("User-Agent", UA)
+                setRequestProperty("User-Agent", userAgent)
                 setRequestProperty("Accept", accept)
                 setRequestProperty("Accept-Language", "en-US,en;q=0.9")
             }

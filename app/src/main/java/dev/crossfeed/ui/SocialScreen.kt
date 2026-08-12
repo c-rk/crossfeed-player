@@ -55,6 +55,7 @@ import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.Router
 import dev.crossfeed.core.history.Stats
 import dev.crossfeed.core.net.Account
+import dev.crossfeed.core.net.Alert
 import dev.crossfeed.core.net.Alerts
 import dev.crossfeed.core.net.Circle
 import dev.crossfeed.core.net.Notifier
@@ -84,7 +85,8 @@ fun SocialScreen() {
     val suspended = Suspension.active
 
     var handle by remember { mutableStateOf(account.handle.orEmpty()) }
-    var registered by remember { mutableStateOf(account.exists) }
+    var registered by remember { mutableStateOf(account.exists && account.claiming == null) }
+    var claiming by remember { mutableStateOf(account.claiming) }
     var posts by remember { mutableStateOf(emptyList<Post>()) }
     var circle by remember { mutableStateOf(Circle(emptyList(), emptyList(), emptyList())) }
     var alerts by remember { mutableStateOf(Alerts(emptyList(), 0, 0)) }
@@ -125,6 +127,15 @@ fun SocialScreen() {
         }
     }
 
+    LaunchedEffect(claiming) {
+        if (claiming == null) return@LaunchedEffect
+        if (Account.settle(context)) {
+            claiming = null
+            handle = account.handle.orEmpty()
+            registered = true
+        }
+    }
+
     LaunchedEffect(registered, reload) {
         if (!registered) return@LaunchedEffect
         runCatching { posts = Social.feed(context) }.onFailure { note = it.message }
@@ -155,6 +166,9 @@ fun SocialScreen() {
                     cursor = sync.now
                     sync.live?.let { live = it }
                     alerts = alerts.copy(unread = sync.unread, requests = sync.requests)
+                    for (match in sync.together) {
+                        Notifier.together(context, match.handle, match.title, match.key)
+                    }
                     if (sync.posts.isNotEmpty()) {
                         quiet = 0
                         val fresh = sync.posts.associateBy { it.id }
@@ -182,6 +196,39 @@ fun SocialScreen() {
             style = Type.body,
             color = glass.inkMuted,
         )
+
+        claiming?.let { wanted ->
+            Spacer(Modifier.height(Space.medium))
+            GlassCard(strong = true) {
+                SectionHeader("waiting on @$wanted")
+                Text(
+                    "that handle already belongs to an account, so crossfeed has asked an admin to " +
+                        "release it to you. if they agree, your old posts, saves and connections come " +
+                        "back with it.",
+                    style = Type.body,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(bottom = Space.small),
+                )
+                GlassButton(
+                    label = "check again",
+                    filled = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        scope.launch {
+                            if (Account.settle(context)) {
+                                claiming = null
+                                handle = account.handle.orEmpty()
+                                registered = true
+                                reload++
+                                note = "the handle is yours"
+                            } else {
+                                note = "still waiting on an admin"
+                            }
+                        }
+                    },
+                )
+            }
+        }
 
         if (registered && suspended) {
             Spacer(Modifier.height(Space.medium))
@@ -240,7 +287,11 @@ fun SocialScreen() {
                             runCatching { Account.register(context, handle.trim()) }
                                 .onSuccess {
                                     handle = it
-                                    registered = true
+                                    claiming = account.claiming
+                                    registered = account.claiming == null
+                                    if (claiming != null) {
+                                        note = "that handle is taken, an admin has been asked to release it"
+                                    }
                                 }
                                 .onFailure { note = it.message }
                             busy = false
@@ -266,6 +317,9 @@ fun SocialScreen() {
                     IconAction(glyph = Glyph.BELL, active = alerts.unread > 0) {
                         showAlerts = true
                         scope.launch {
+                            runCatching { Social.alerts(context) }
+                                .onSuccess { alerts = it }
+                                .onFailure { note = it.message }
                             runCatching { Social.markAlertsSeen(context) }
                             alerts = alerts.copy(unread = 0)
                         }
@@ -548,11 +602,18 @@ fun SocialScreen() {
                     onClick = {
                         scope.launch {
                             runCatching { Social.forget(context) }
-                            account.forget()
-                            registered = false
-                            posts = emptyList()
-                            saves = emptyList()
-                            note = "everything on the server is gone"
+                                .onSuccess {
+                                    account.forget()
+                                    registered = false
+                                    posts = emptyList()
+                                    saves = emptyList()
+                                    live = emptyList()
+                                    note = "everything on the server is gone"
+                                }
+                                .onFailure {
+                                    note = "could not reach the server, so nothing was deleted. " +
+                                        "your account is untouched, try again when you have signal."
+                                }
                         }
                     },
                 )
@@ -588,7 +649,11 @@ fun SocialScreen() {
     }
 
     if (showAlerts) {
-        AlertsDialog(alerts = alerts, onClose = { showAlerts = false })
+        AlertsDialog(
+            alerts = alerts,
+            onPlay = { alert -> scope.launch { Router.play(context, alert.title, alert.artist) } },
+            onClose = { showAlerts = false },
+        )
     }
 
     if (showNearby) {
@@ -598,35 +663,82 @@ fun SocialScreen() {
 }
 
 @Composable
-private fun AlertsDialog(alerts: Alerts, onClose: () -> Unit) {
+private fun AlertsDialog(alerts: Alerts, onPlay: (Alert) -> Unit, onClose: () -> Unit) {
     val glass = LocalGlass.current
+    val posts = remember(alerts.items) { alerts.items.groupBy { it.postId } }
+
     androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
         GlassCard(strong = true) {
-            SectionHeader("reactions")
-            if (alerts.items.isEmpty()) {
+            SectionHeader("reactions") {
+                Text("${alerts.items.size}", style = Type.footnote, color = glass.inkFaint)
+            }
+            if (posts.isEmpty()) {
                 Text(
-                    "nobody has reacted yet. share something and it will show up here.",
+                    "nobody has reacted yet. turn sharing on and play something, and reactions " +
+                        "to your songs will land here.",
                     style = Type.body,
                     color = glass.inkMuted,
                     modifier = Modifier.padding(vertical = Space.small),
                 )
             }
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                for (alert in alerts.items.take(30)) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = Space.tight),
-                        verticalAlignment = Alignment.CenterVertically,
+                for ((_, group) in posts) {
+                    val head = group.first()
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onPlay(head) }
+                            .padding(vertical = Space.small),
                     ) {
-                        Text(alert.emoji, style = Type.title)
-                        Column(Modifier.weight(1f).padding(start = Space.small)) {
-                            Text(
-                                "@${alert.handle} reacted to ${alert.title}",
-                                style = Type.callout,
-                                color = if (alert.fresh) glass.ink else glass.inkMuted,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(ago(alert.at), style = Type.footnote, color = glass.inkFaint)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            UrlArt(head.art, head.title, 46.dp)
+                            Column(Modifier.weight(1f).padding(start = Space.small)) {
+                                Text(
+                                    head.title,
+                                    style = Type.callout,
+                                    color = if (group.any { it.fresh }) glass.ink else glass.inkMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    head.artist ?: "unknown artist",
+                                    style = Type.footnote,
+                                    color = glass.inkFaint,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(ago(head.at), style = Type.footnote, color = glass.inkFaint)
+                            }
+                            if (group.any { it.fresh }) {
+                                Box(
+                                    Modifier
+                                        .size(9.dp)
+                                        .clip(CircleShape)
+                                        .background(glass.warning),
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.padding(top = Space.tight),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            for (alert in group.take(8)) {
+                                Row(
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .background(glass.fill)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(alert.emoji, style = Type.footnote)
+                                    Text(
+                                        " @${alert.handle}",
+                                        style = Type.footnote,
+                                        color = glass.inkMuted,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -835,7 +947,7 @@ private fun LiveRow(entries: List<dev.crossfeed.core.net.Live>, onPlay: (dev.cro
         for (entry in entries) {
             Column(
                 Modifier
-                    .width(74.dp)
+                    .width(94.dp)
                     .clickable { onPlay(entry) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -868,6 +980,13 @@ private fun LiveRow(entries: List<dev.crossfeed.core.net.Live>, onPlay: (dev.cro
                 Text(
                     entry.title,
                     style = Type.footnote,
+                    color = glass.inkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    entry.artist ?: "unknown artist",
+                    style = Type.caps,
                     color = glass.inkFaint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.history.HistoryDb
 import dev.crossfeed.core.history.ListeningService
 import dev.crossfeed.core.player.SourceSetup
 import dev.crossfeed.ui.CrossfeedApp
@@ -18,6 +19,7 @@ class MainActivity : ComponentActivity() {
         ThemeSeed.pkg = Prefs(this).primary.pkg
         SourceSetup.install()
         if (ListeningService.enabled(this)) ListeningService.rebind(this)
+        Thread { HistoryDb.get(applicationContext).runPendingMaintenance() }.start()
         setContent {
             CrossfeedTheme {
                 CrossfeedApp()

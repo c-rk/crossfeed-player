@@ -25,13 +25,15 @@ object Presence {
     suspend fun push(context: Context): Boolean {
         if (!Account(context).exists) return false
         val broadcast = Prefs(context).broadcast
-        val location = if (allowed(context)) locate(context) else null
+        val location = if (broadcast && allowed(context)) locate(context) else null
         val body = JSONObject().put("broadcast", broadcast)
-        location?.let { body.put("lat", it.latitude).put("lon", it.longitude) }
+        location?.let { body.put("lat", coarse(it.latitude)).put("lon", coarse(it.longitude)) }
         return withContext(Dispatchers.IO) {
             runCatching { Api.post(context, "/v1/me/presence", body) }.isSuccess
         }
     }
+
+    private fun coarse(degrees: Double) = Math.round(degrees * 1000.0) / 1000.0
 
     suspend fun locate(context: Context): Location? {
         if (!allowed(context)) return null

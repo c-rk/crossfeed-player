@@ -95,11 +95,14 @@ fun ListeningScreen() {
     var reload by remember { mutableStateOf(0) }
     var eraseDays by remember { mutableIntStateOf(30) }
     var confirming by remember { mutableStateOf(false) }
-    var showAdvanced by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exported by remember { mutableStateOf<Export?>(null) }
     var exportNote by remember { mutableStateOf<String?>(null) }
     var showHistory by remember { mutableStateOf(false) }
+    var showLyrics by remember { mutableStateOf(false) }
+    var showCurate by remember { mutableStateOf(false) }
+    var showCredits by remember { mutableStateOf<Play?>(null) }
+    var forgotten by remember { mutableStateOf(emptyList<HistoryDb.Forgotten>()) }
     var openPlay by remember { mutableStateOf<Long?>(null) }
 
     suspend fun refresh() {
@@ -121,6 +124,10 @@ fun ListeningScreen() {
     LaunchedEffect(range, reload) { refresh() }
 
     LaunchedEffect(reload) { measure() }
+
+    LaunchedEffect(reload) {
+        forgotten = withContext(Dispatchers.IO) { db.forgotten() }
+    }
 
     LaunchedEffect(Unit) { Stats.enrichGenres(context) }
 
@@ -232,49 +239,147 @@ fun ListeningScreen() {
             label = { appLabel(context, it) },
         )
 
-        data?.let { d ->
+
+        dev.crossfeed.core.history.NowPlaying.current?.let { live ->
             Spacer(Modifier.height(Space.medium))
             GlassCard {
-                SectionHeader("advanced stats") {
-                    GlassChip(
-                        label = if (showAdvanced) "hide" else "show",
-                        selected = showAdvanced,
-                        onClick = { showAdvanced = !showAdvanced },
-                    )
-                }
-                if (showAdvanced) {
-                    val a = d.advanced
-                    Line("longest session", Stats.minutes(a.longestSessionMs))
-                    a.mostSkipped?.let { Line("most skipped", "${it.label} · ${it.plays}x") }
-                    Line("days with music", "${a.activeDays}")
-                    Line("average per day", Stats.minutes(a.perDayMs))
-                    a.biggestDay?.let { Line("biggest day", "${it.first} · ${Stats.minutes(it.second)}") }
-                    Line("new artists", "${a.newArtists}")
-                    Line("new tracks", "${a.newTracks}")
-                    a.obsession?.let { Line("on repeat", "${it.first} · ${it.third}x on ${it.second}") }
-                    Line("weekdays", Stats.minutes(a.weekdayMs))
-                    Line("weekends", Stats.minutes(a.weekendMs))
-                    for ((source, rate, skips) in a.bySource) {
-                        Line(
-                            "${appLabel(context, source)} finish rate",
-                            "${(rate * 100).toInt()}% · $skips skipped",
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("playing now", style = Type.blockTitle, color = glass.inkMuted)
+                        Text(
+                            live.title,
+                            style = Type.headline,
+                            color = glass.ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            live.artist ?: "unknown artist",
+                            style = Type.footnote,
+                            color = glass.inkFaint,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        GlassButton(label = "sing along", filled = true, compact = true, onClick = { showLyrics = true })
+                        Spacer(Modifier.height(Space.tight))
+                        GlassButton(
+                            label = "credits",
+                            compact = true,
+                            onClick = {
+                                showCredits = Play(
+                                    id = 0,
+                                    title = live.title,
+                                    artist = live.artist,
+                                    album = live.album,
+                                    durationMs = live.durationMs,
+                                    listenedMs = 0,
+                                    source = live.source,
+                                    startedAt = 0,
+                                    genre = null,
+                                    artwork = live.artwork,
+                                )
+                            },
                         )
                     }
                 }
             }
         }
 
+        forgotten.firstOrNull()?.let { old ->
+            Spacer(Modifier.height(Space.medium))
+            GlassCard {
+                SectionHeader("you used to love this") {
+                    Text("${forgotten.size}", style = Type.footnote, color = glass.inkFaint)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    UrlArt(old.artwork, old.title, 52.dp)
+                    Column(Modifier.weight(1f).padding(start = Space.small)) {
+                        Text(
+                            old.title,
+                            style = Type.headline,
+                            color = glass.ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            old.artist ?: "unknown artist",
+                            style = Type.footnote,
+                            color = glass.inkMuted,
+                            maxLines = 1,
+                        )
+                        Text(
+                            "${old.plays} plays · last heard ${ago(old.lastAt)}",
+                            style = Type.footnote,
+                            color = glass.inkFaint,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(Space.small))
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.tight)) {
+                    GlassButton(
+                        label = "play it",
+                        filled = true,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { db.resurfaceAgain(old.key) }
+                                Router.play(context, old.title, old.artist)
+                                reload++
+                            }
+                        },
+                    )
+                    GlassButton(
+                        label = "later",
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { db.resurfaceAgain(old.key) }
+                                reload++
+                            }
+                        },
+                    )
+                    GlassButton(
+                        label = "never",
+                        onClick = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { db.resurfaceNever(old.key) }
+                                reload++
+                            }
+                        },
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(Space.medium))
-        SearchField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = "search your history",
-            modifier = Modifier.fillMaxWidth(),
-        )
+        GlassCard {
+            SectionHeader("curation")
+            Text(
+                "give it a length and a mood of your own choosing and it builds a list from what " +
+                    "you already play plus things you have not heard. play it wherever you like.",
+                style = Type.footnote,
+                color = glass.inkMuted,
+                modifier = Modifier.padding(bottom = Space.small),
+            )
+            GlassButton(
+                label = "make me a list",
+                filled = true,
+                compact = true,
+                onClick = { showCurate = true },
+            )
+        }
 
         Spacer(Modifier.height(Space.medium))
         GlassCard {
             SectionHeader("feed")
+            SearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "search your history",
+                modifier = Modifier.fillMaxWidth().padding(bottom = Space.small),
+            )
             val feed = data?.feed.orEmpty()
             if (feed.isEmpty()) {
                 Text(
@@ -309,7 +414,7 @@ fun ListeningScreen() {
                                 onRemove = {
                                     openPlay = null
                                     scope.launch {
-                                        withContext(Dispatchers.IO) { db.delete(play.id) }
+                                        withContext(Dispatchers.IO) { erase(context, db, play.id) }
                                         reload++
                                     }
                                 },
@@ -408,6 +513,23 @@ fun ListeningScreen() {
         Spacer(Modifier.height(110.dp))
     }
 
+    showCredits?.let { track ->
+        CreditsSheet(
+            title = track.title,
+            artist = track.artist,
+            durationMs = track.durationMs,
+            onClose = { showCredits = null },
+        )
+    }
+
+    if (showCurate) {
+        CurateScreen(onClose = { showCurate = false })
+    }
+
+    if (showLyrics) {
+        LyricsScreen(onClose = { showLyrics = false })
+    }
+
     if (showHistory) {
         FullHistory(
             plays = dashboard?.feed.orEmpty(),
@@ -415,7 +537,7 @@ fun ListeningScreen() {
             onPlay = { play -> scope.launch { Router.play(context, play.title, play.artist) } },
             onRemove = { play ->
                 scope.launch {
-                    withContext(Dispatchers.IO) { db.delete(play.id) }
+                    withContext(Dispatchers.IO) { erase(context, db, play.id) }
                     reload++
                 }
             },
@@ -512,6 +634,13 @@ private fun FullHistory(
             }
         }
     }
+}
+
+private fun erase(context: Context, db: HistoryDb, playId: Long) {
+    db.postIdOf(playId)?.let { postId ->
+        runCatching { dev.crossfeed.core.net.Api.delete(context, "/v1/posts/$postId") }
+    }
+    db.hide(playId)
 }
 
 private fun dayLabel(millis: Long): String {

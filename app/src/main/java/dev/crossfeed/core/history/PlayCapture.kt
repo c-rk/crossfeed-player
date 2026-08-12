@@ -22,7 +22,7 @@ class PlayCapture(private val context: Context) {
         var finalized: Boolean = false,
         var artworkRetries: Int = 0,
     ) {
-        fun key() = "$title|${artist.orEmpty()}"
+        fun key() = "${title.trim().lowercase()}|${artist.orEmpty().trim().lowercase()}"
 
         fun listened(now: Long) = accumulated + (playingSince?.let { now - it } ?: 0L)
     }
@@ -66,11 +66,29 @@ class PlayCapture(private val context: Context) {
             session.accumulated += now - (session.playingSince ?: now)
             session.playingSince = null
         }
+        announce(pkg, session, playing, state)
         persist(pkg, session)
+    }
+
+    private fun announce(pkg: String, session: Session, playing: Boolean, state: PlaybackState?) {
+        val reported = state?.position ?: 0L
+        val since = state?.lastPositionUpdateTime?.takeIf { it > 0 }
+            ?.let { android.os.SystemClock.elapsedRealtime() - it } ?: 0L
+        NowPlaying.set(
+            title = session.title,
+            artist = session.artist,
+            album = session.album,
+            durationMs = session.durationMs,
+            artwork = session.artwork,
+            source = pkg,
+            playing = playing,
+            positionMs = reported + if (playing) since else 0L,
+        )
     }
 
     fun close(pkg: String) {
         val session = sessions.remove(pkg) ?: return
+        NowPlaying.clear(pkg)
         persist(pkg, session)
         if (!session.finalized && session.rowId != null) {
             session.finalized = true
@@ -134,8 +152,10 @@ class PlayCapture(private val context: Context) {
         if (session.rowId == null) {
             val resumed = db.findRecent(session.title, session.artist, pkg, now - RESUME_WINDOW_MS)
             if (resumed != null) {
+                val already = db.listenedOf(resumed)
                 session.rowId = resumed
-                session.committed = db.listenedOf(resumed)
+                session.accumulated += already
+                session.committed = already
             }
         }
 
@@ -184,6 +204,7 @@ class PlayCapture(private val context: Context) {
             startedAt = session.startedAt,
             listenedMs = listened,
             durationMs = session.durationMs,
+            rowId = session.rowId,
         )
     }
 
@@ -199,6 +220,6 @@ class PlayCapture(private val context: Context) {
         const val LONGEST_RUN = "longest_run_ms"
         const val RUN_GAP_MS = 5 * 60_000L
         const val MIN_LISTEN_MS = 20_000L
-        const val RESUME_WINDOW_MS = 20 * 60_000L
+        const val RESUME_WINDOW_MS = 60 * 60_000L
     }
 }

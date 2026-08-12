@@ -80,6 +80,23 @@ object LocalBrowse {
             }
         }
 
+    private val entities = mapOf(
+        "&quot;" to "\"",
+        "&apos;" to "'",
+        "&#39;" to "'",
+        "&lt;" to "<",
+        "&gt;" to ">",
+        "&nbsp;" to " ",
+        "&amp;" to "&",
+    )
+
+    private fun clean(value: String?): String? {
+        if (value == null || !value.contains('&')) return value
+        var out: String = value
+        for ((entity, char) in entities) out = out.replace(entity, char, ignoreCase = true)
+        return out
+    }
+
     private fun dirOf(track: Track): String? = track.path?.substringBeforeLast('/', "")?.takeIf { it.isNotBlank() }
 
     suspend fun folderRoot(context: Context): String = withContext(Dispatchers.IO) {
@@ -155,9 +172,9 @@ object LocalBrowse {
                 out.add(
                     Track(
                         id = "local:$id",
-                        title = cursor.getString(titleCol) ?: "",
-                        artist = cursor.getString(artistCol)?.takeIf { it != "<unknown>" },
-                        album = cursor.getString(albumCol),
+                        title = clean(cursor.getString(titleCol)) ?: "",
+                        artist = clean(cursor.getString(artistCol))?.takeIf { it != "<unknown>" },
+                        album = clean(cursor.getString(albumCol)),
                         durationMs = cursor.getLong(durationCol),
                         artwork = uri.toString(),
                         sourceId = "local",

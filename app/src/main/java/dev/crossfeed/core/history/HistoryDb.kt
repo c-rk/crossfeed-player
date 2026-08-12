@@ -30,6 +30,14 @@ data class Summary(
 class HistoryDb private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {
 
+    private var pendingMerge = false
+
+    fun runPendingMaintenance() {
+        if (!pendingMerge) return
+        pendingMerge = false
+        runCatching { mergeDuplicates(RESUME_WINDOW_MS) }
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -43,7 +51,10 @@ class HistoryDb private constructor(context: Context) :
                 source TEXT NOT NULL,
                 started_at INTEGER NOT NULL,
                 genre TEXT,
-                artwork TEXT
+                artwork TEXT,
+                post_id TEXT,
+                hidden INTEGER NOT NULL DEFAULT 0,
+                last_at INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent(),
         )
@@ -54,6 +65,35 @@ class HistoryDb private constructor(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 4) createAggregates(db)
+        if (oldVersion < 5) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS lyrics (key TEXT NOT NULL PRIMARY KEY, synced TEXT, plain TEXT, " +
+                    "instrumental INTEGER NOT NULL DEFAULT 0, missing INTEGER NOT NULL DEFAULT 0, " +
+                    "fetched_at INTEGER NOT NULL)",
+            )
+            db.execSQL("ALTER TABLE plays ADD COLUMN post_id TEXT")
+            db.execSQL("ALTER TABLE plays ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
+        }
+        if (oldVersion < 8) pendingMerge = true
+        if (oldVersion < 7) {
+            db.execSQL("ALTER TABLE plays ADD COLUMN last_at INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE plays SET last_at = started_at + listened_ms WHERE last_at = 0")
+        }
+        if (oldVersion < 6) {
+            db.execSQL(
+            "CREATE TABLE IF NOT EXISTS resurface (key TEXT NOT NULL PRIMARY KEY, next_at INTEGER NOT NULL, " +
+                    "interval_days INTEGER NOT NULL DEFAULT 30, dismissed INTEGER NOT NULL DEFAULT 0)",
+            )
+            db.execSQL(
+            "CREATE TABLE IF NOT EXISTS credits (key TEXT NOT NULL PRIMARY KEY, missing INTEGER NOT NULL DEFAULT 0, " +
+                    "fetched_at INTEGER NOT NULL)",
+            )
+            db.execSQL(
+            "CREATE TABLE IF NOT EXISTS credit_people (key TEXT NOT NULL, person TEXT NOT NULL, " +
+                    "role TEXT NOT NULL, PRIMARY KEY(key, person, role))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_credit_person ON credit_people(person)")
+        }
     }
 
     private fun createAggregates(db: SQLiteDatabase) {
@@ -70,6 +110,264 @@ class HistoryDb private constructor(context: Context) :
         db.execSQL("CREATE TABLE IF NOT EXISTS track_genre (title TEXT NOT NULL PRIMARY KEY, genre TEXT NOT NULL)")
         db.execSQL("CREATE TABLE IF NOT EXISTS meta (key TEXT NOT NULL PRIMARY KEY, value INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE IF NOT EXISTS remote_art (key TEXT NOT NULL PRIMARY KEY, url TEXT NOT NULL)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS lyrics (key TEXT NOT NULL PRIMARY KEY, synced TEXT, plain TEXT, " +
+                "instrumental INTEGER NOT NULL DEFAULT 0, missing INTEGER NOT NULL DEFAULT 0, " +
+                "fetched_at INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS resurface (key TEXT NOT NULL PRIMARY KEY, next_at INTEGER NOT NULL, " +
+                "interval_days INTEGER NOT NULL DEFAULT 30, dismissed INTEGER NOT NULL DEFAULT 0)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS credits (key TEXT NOT NULL PRIMARY KEY, missing INTEGER NOT NULL DEFAULT 0, " +
+                "fetched_at INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS credit_people (key TEXT NOT NULL, person TEXT NOT NULL, " +
+                "role TEXT NOT NULL, PRIMARY KEY(key, person, role))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_credit_person ON credit_people(person)")
+    }
+
+    data class CachedLyrics(
+        val synced: String?,
+        val plain: String?,
+        val instrumental: Boolean,
+        val missing: Boolean,
+        val fetchedAt: Long,
+    )
+
+    fun lyrics(key: String): CachedLyrics? {
+        readableDatabase.rawQuery(
+            "SELECT synced, plain, instrumental, missing, fetched_at FROM lyrics WHERE key = ?",
+            arrayOf(key),
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return CachedLyrics(
+                synced = cursor.getString(0),
+                plain = cursor.getString(1),
+                instrumental = cursor.getInt(2) == 1,
+                missing = cursor.getInt(3) == 1,
+                fetchedAt = cursor.getLong(4),
+            )
+        }
+    }
+
+    fun putLyrics(key: String, synced: String?, plain: String?, instrumental: Boolean, missing: Boolean) {
+        writableDatabase.execSQL(
+            "INSERT OR REPLACE INTO lyrics (key, synced, plain, instrumental, missing, fetched_at) " +
+                "VALUES (?,?,?,?,?,?)",
+            arrayOf(key, synced, plain, if (instrumental) 1 else 0, if (missing) 1 else 0, System.currentTimeMillis()),
+        )
+    }
+
+    fun linkPost(rowId: Long, postId: String) {
+        writableDatabase.execSQL("UPDATE plays SET post_id = ? WHERE id = ?", arrayOf(postId, rowId))
+    }
+
+    fun postIdOf(rowId: Long): String? {
+        readableDatabase.rawQuery("SELECT post_id FROM plays WHERE id = ?", arrayOf(rowId.toString())).use { c ->
+            return if (c.moveToFirst()) c.getString(0) else null
+        }
+    }
+
+    fun knownTracks(limit: Int): List<dev.crossfeed.core.curate.Pick> {
+        val out = mutableListOf<dev.crossfeed.core.curate.Pick>()
+        readableDatabase.rawQuery(
+            "SELECT title, IFNULL(artist,''), album, MAX(duration_ms), artwork, genre, COUNT(*) " +
+                "FROM plays WHERE duration_ms > 30000 GROUP BY title, artist " +
+                "ORDER BY COUNT(*) DESC, MAX(started_at) DESC LIMIT ?",
+            arrayOf(limit.toString()),
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                out.add(
+                    dev.crossfeed.core.curate.Pick(
+                        title = cursor.getString(0),
+                        artist = cursor.getString(1),
+                        album = cursor.getString(2),
+                        durationMs = cursor.getLong(3),
+                        artwork = cursor.getString(4),
+                        genre = cursor.getString(5),
+                        known = true,
+                    ),
+                )
+            }
+        }
+        return out
+    }
+
+    fun knownGenres(limit: Int = 14): List<String> {
+        val out = mutableListOf<String>()
+        readableDatabase.rawQuery(
+            "SELECT genre, COUNT(*) FROM plays WHERE genre IS NOT NULL AND genre != '' " +
+                "GROUP BY genre ORDER BY COUNT(*) DESC LIMIT ?",
+            arrayOf(limit.toString()),
+        ).use { cursor ->
+            while (cursor.moveToNext()) out.add(cursor.getString(0))
+        }
+        return out
+    }
+
+    data class Forgotten(
+        val title: String,
+        val artist: String?,
+        val artwork: String?,
+        val plays: Int,
+        val lastAt: Long,
+    ) {
+        val key: String get() = "$title|${artist.orEmpty()}".lowercase()
+    }
+
+    fun forgotten(minPlays: Int = 3, quietDays: Int = 60, limit: Int = 12): List<Forgotten> {
+        val now = System.currentTimeMillis()
+        val cutoff = now - java.util.concurrent.TimeUnit.DAYS.toMillis(quietDays.toLong())
+        val out = mutableListOf<Forgotten>()
+        readableDatabase.rawQuery(
+            "SELECT p.title, IFNULL(p.artist,''), MAX(p.artwork), COUNT(*) c, MAX(p.started_at) last " +
+                "FROM plays p LEFT JOIN resurface r ON r.key = LOWER(p.title || '|' || IFNULL(p.artist,'')) " +
+                "WHERE IFNULL(r.dismissed,0) = 0 AND IFNULL(r.next_at,0) <= ? " +
+                "GROUP BY p.title, p.artist HAVING c >= ? AND last < ? " +
+                "ORDER BY c DESC, last ASC LIMIT ?",
+            arrayOf(now.toString(), minPlays.toString(), cutoff.toString(), limit.toString()),
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                out.add(
+                    Forgotten(
+                        title = cursor.getString(0),
+                        artist = cursor.getString(1).takeIf { it.isNotBlank() },
+                        artwork = cursor.getString(2),
+                        plays = cursor.getInt(3),
+                        lastAt = cursor.getLong(4),
+                    ),
+                )
+            }
+        }
+        return out
+    }
+
+    fun resurfaceAgain(key: String) {
+        val current = readableDatabase.rawQuery(
+            "SELECT interval_days FROM resurface WHERE key = ?",
+            arrayOf(key),
+        ).use { if (it.moveToFirst()) it.getInt(0) else 30 }
+        val next = (current * 2).coerceAtMost(720)
+        writableDatabase.execSQL(
+            "INSERT OR REPLACE INTO resurface (key, next_at, interval_days, dismissed) VALUES (?,?,?,0)",
+            arrayOf(
+                key,
+                System.currentTimeMillis() + java.util.concurrent.TimeUnit.DAYS.toMillis(next.toLong()),
+                next,
+            ),
+        )
+    }
+
+    fun resurfaceNever(key: String) {
+        writableDatabase.execSQL(
+            "INSERT OR REPLACE INTO resurface (key, next_at, interval_days, dismissed) VALUES (?,?,?,1)",
+            arrayOf(key, Long.MAX_VALUE, 720),
+        )
+    }
+
+    data class Credit(val person: String, val role: String)
+
+    fun credits(key: String): List<Credit>? {
+        val known = readableDatabase.rawQuery(
+            "SELECT missing FROM credits WHERE key = ?",
+            arrayOf(key),
+        ).use { if (it.moveToFirst()) it.getInt(0) else -1 }
+        if (known < 0) return null
+        if (known == 1) return emptyList()
+        val out = mutableListOf<Credit>()
+        readableDatabase.rawQuery(
+            "SELECT person, role FROM credit_people WHERE key = ? ORDER BY role, person",
+            arrayOf(key),
+        ).use { cursor ->
+            while (cursor.moveToNext()) out.add(Credit(cursor.getString(0), cursor.getString(1)))
+        }
+        return out
+    }
+
+    fun putCredits(key: String, people: List<Credit>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.execSQL(
+                "INSERT OR REPLACE INTO credits (key, missing, fetched_at) VALUES (?,?,?)",
+                arrayOf(key, if (people.isEmpty()) 1 else 0, System.currentTimeMillis()),
+            )
+            db.execSQL("DELETE FROM credit_people WHERE key = ?", arrayOf(key))
+            for (credit in people) {
+                db.execSQL(
+                    "INSERT OR REPLACE INTO credit_people (key, person, role) VALUES (?,?,?)",
+                    arrayOf(key, credit.person, credit.role),
+                )
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun appearances(person: String): Int {
+        readableDatabase.rawQuery(
+            "SELECT COUNT(DISTINCT key) FROM credit_people WHERE person = ?",
+            arrayOf(person),
+        ).use { return if (it.moveToFirst()) it.getInt(0) else 0 }
+    }
+
+    fun mergeDuplicates(windowMs: Long): Int {
+        data class Row(val id: Long, val key: String, val startedAt: Long, val lastAt: Long, val listened: Long)
+
+        val rows = mutableListOf<Row>()
+        readableDatabase.rawQuery(
+            "SELECT id, LOWER(TRIM(title)) || '|' || LOWER(TRIM(IFNULL(artist,''))) || '|' || source, " +
+                "started_at, MAX(last_at, started_at), listened_ms FROM plays ORDER BY started_at ASC",
+            null,
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                rows.add(
+                    Row(
+                        cursor.getLong(0),
+                        cursor.getString(1),
+                        cursor.getLong(2),
+                        cursor.getLong(3),
+                        cursor.getLong(4),
+                    ),
+                )
+            }
+        }
+
+        val keepers = mutableMapOf<String, Row>()
+        val folded = mutableListOf<Pair<Long, Long>>()
+        val gone = mutableListOf<Long>()
+        for (row in rows) {
+            val held = keepers[row.key]
+            if (held != null && row.startedAt - held.lastAt <= windowMs) {
+                val total = held.listened + row.listened
+                keepers[row.key] = held.copy(lastAt = maxOf(held.lastAt, row.lastAt), listened = total)
+                folded.add(held.id to total)
+                gone.add(row.id)
+            } else {
+                keepers[row.key] = row
+            }
+        }
+        if (gone.isEmpty()) return 0
+
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            for ((id, total) in folded) {
+                db.execSQL("UPDATE plays SET listened_ms = ? WHERE id = ?", arrayOf(total, id))
+            }
+            for (id in gone.chunked(200)) {
+                db.execSQL("DELETE FROM plays WHERE id IN (${id.joinToString(",")})")
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return gone.size
     }
 
     fun remoteArt(key: String): String? {
@@ -170,14 +468,23 @@ class HistoryDb private constructor(context: Context) :
             put("started_at", play.startedAt)
             put("genre", play.genre)
             put("artwork", play.artwork)
+            put("last_at", play.startedAt)
         },
     )
 
     fun findRecent(title: String, artist: String?, source: String, since: Long): Long? {
         readableDatabase.rawQuery(
-            "SELECT id FROM plays WHERE title = ? AND IFNULL(artist,'') = ? AND source = ? " +
-                "AND started_at >= ? ORDER BY started_at DESC LIMIT 1",
-            arrayOf(title, artist.orEmpty(), source, since.toString()),
+            "SELECT id FROM plays WHERE LOWER(TRIM(title)) = ? AND source = ? " +
+                "AND MAX(last_at, started_at) >= ? " +
+                "AND (LOWER(TRIM(IFNULL(artist,''))) = ? OR LOWER(TRIM(IFNULL(artist,''))) = '' OR ? = '') " +
+                "ORDER BY MAX(last_at, started_at) DESC LIMIT 1",
+            arrayOf(
+                title.trim().lowercase(),
+                source,
+                since.toString(),
+                artist.orEmpty().trim().lowercase(),
+                artist.orEmpty().trim().lowercase(),
+            ),
         ).use { cursor ->
             return if (cursor.moveToFirst()) cursor.getLong(0) else null
         }
@@ -185,8 +492,8 @@ class HistoryDb private constructor(context: Context) :
 
     fun updateListened(id: Long, listenedMs: Long) {
         writableDatabase.execSQL(
-            "UPDATE plays SET listened_ms = ? WHERE id = ?",
-            arrayOf(listenedMs, id),
+            "UPDATE plays SET listened_ms = ?, last_at = ? WHERE id = ?",
+            arrayOf(listenedMs, System.currentTimeMillis(), id),
         )
     }
 
@@ -222,7 +529,7 @@ class HistoryDb private constructor(context: Context) :
 
     fun feed(since: Long = 0, query: String = "", limit: Int = 200): List<Play> {
         val args = mutableListOf<String>(since.toString())
-        var where = "started_at >= ?"
+        var where = "hidden = 0 AND started_at >= ?"
         if (query.isNotBlank()) {
             where += " AND (title LIKE ? OR IFNULL(artist,'') LIKE ? OR IFNULL(album,'') LIKE ?)"
             repeat(3) { args.add("%${query.trim()}%") }
@@ -384,25 +691,36 @@ class HistoryDb private constructor(context: Context) :
 
     fun eraseFeedOlderThan(days: Int): Int {
         val cutoff = System.currentTimeMillis() - java.util.concurrent.TimeUnit.DAYS.toMillis(days.toLong())
-        return writableDatabase.delete("plays", "started_at < ?", arrayOf(cutoff.toString()))
+        val values = android.content.ContentValues().apply { put("hidden", 1) }
+        return writableDatabase.update("plays", values, "hidden = 0 AND started_at < ?", arrayOf(cutoff.toString()))
     }
 
     fun feedCount(): Int {
+        readableDatabase.rawQuery("SELECT COUNT(*) FROM plays WHERE hidden = 0", null).use { cursor ->
+            return if (cursor.moveToFirst()) cursor.getInt(0) else 0
+        }
+    }
+
+    fun playCount(): Int {
         readableDatabase.rawQuery("SELECT COUNT(*) FROM plays", null).use { cursor ->
             return if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 
-    fun delete(id: Long) {
-        writableDatabase.delete("plays", "id = ?", arrayOf(id.toString()))
+    fun hide(id: Long) {
+        val values = android.content.ContentValues().apply { put("hidden", 1) }
+        writableDatabase.update("plays", values, "id = ?", arrayOf(id.toString()))
     }
 
-    fun deleteTrack(title: String, artist: String?) {
-        writableDatabase.delete("plays", "title = ? AND IFNULL(artist,'') = ?", arrayOf(title, artist.orEmpty()))
+    fun hideTrack(title: String, artist: String?) {
+        val values = android.content.ContentValues().apply { put("hidden", 1) }
+        writableDatabase.update(
+            "plays",
+            values,
+            "title = ? AND IFNULL(artist,'') = ?",
+            arrayOf(title, artist.orEmpty()),
+        )
     }
-
-    fun deleteOlderThan(cutoff: Long): Int =
-        writableDatabase.delete("plays", "started_at < ?", arrayOf(cutoff.toString()))
 
     fun clear() {
         writableDatabase.delete("plays", null, null)
@@ -437,7 +755,8 @@ class HistoryDb private constructor(context: Context) :
 
     companion object {
         private const val NAME = "listening.db"
-        private const val VERSION = 4
+        private const val RESUME_WINDOW_MS = 60 * 60_000L
+        private const val VERSION = 8
 
         @Volatile
         private var instance: HistoryDb? = null

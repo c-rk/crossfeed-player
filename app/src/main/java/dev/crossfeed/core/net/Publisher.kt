@@ -1,6 +1,7 @@
 package dev.crossfeed.core.net
 
 import android.content.Context
+import android.util.Log
 import dev.crossfeed.core.AppleCatalog
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.history.HistoryDb
@@ -24,13 +25,16 @@ object Publisher {
         startedAt: Long,
         listenedMs: Long,
         durationMs: Long,
+        rowId: Long? = null,
     ) {
         if (!Prefs(context).sharePlays || !Account(context).exists || Suspension.active) return
         val key = "$title|${artist.orEmpty()}"
-        val last = pushed[key] ?: 0L
-        if (listenedMs < FIRST_PUSH_MS || listenedMs - last < REPUSH_MS) return
+        val last = pushed[key]
+        if (listenedMs < FIRST_PUSH_MS) return
+        if (last != null && listenedMs - last < REPUSH_MS) return
         pushed[key] = listenedMs
         scope.launch {
+            val art = runCatching { remoteArt(context, title, artist) }.getOrNull()
             runCatching {
                 Api.post(
                     context,
@@ -39,12 +43,20 @@ object Publisher {
                         .put("title", title)
                         .put("artist", artist)
                         .put("album", album)
-                        .put("art", remoteArt(context, title, artist))
+                        .put("art", art)
                         .put("source", source)
                         .put("startedAt", startedAt)
                         .put("listenedMs", listenedMs)
                         .put("durationMs", durationMs),
                 )
+            }.onSuccess { response ->
+                val postId = response.optString("id")
+                if (rowId != null && postId.isNotBlank()) {
+                    runCatching { HistoryDb.get(context).linkPost(rowId, postId) }
+                }
+            }.onFailure {
+                pushed.remove(key)
+                Log.w("Publisher", "could not post $title", it)
             }
         }
     }
