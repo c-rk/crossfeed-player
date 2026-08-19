@@ -27,7 +27,9 @@ object Publisher {
         durationMs: Long,
         rowId: Long? = null,
     ) {
-        if (!Prefs(context).sharePlays || !Account(context).exists || Suspension.active) return
+        val prefs = Prefs(context)
+        if (!prefs.sharePlays || prefs.sharingPaused) return
+        if (!Account(context).exists || Suspension.active) return
         val key = "$title|${artist.orEmpty()}"
         val last = pushed[key]
         if (listenedMs < FIRST_PUSH_MS) return

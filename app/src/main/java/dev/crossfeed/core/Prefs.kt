@@ -39,6 +39,16 @@ class Prefs(context: Context) {
         get() = store.getBoolean(KEY_SHARE_PLAYS, false)
         set(value) = store.edit().putBoolean(KEY_SHARE_PLAYS, value).apply()
 
+    /**
+     * Sharing held off until this moment. A pause is a time, not a switch, so forgetting to turn
+     * sharing back on is impossible.
+     */
+    var pausedUntil: Long
+        get() = store.getLong(KEY_PAUSED_UNTIL, 0)
+        set(value) = store.edit().putLong(KEY_PAUSED_UNTIL, value).apply()
+
+    val sharingPaused: Boolean get() = pausedUntil > System.currentTimeMillis()
+
     var broadcast: Boolean
         get() = store.getBoolean(KEY_BROADCAST, false)
         set(value) = store.edit().putBoolean(KEY_BROADCAST, value).apply()
@@ -54,6 +64,7 @@ class Prefs(context: Context) {
         private const val KEY_AUTO_OPEN = "auto_open"
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_SHARE_PLAYS = "share_plays"
+        private const val KEY_PAUSED_UNTIL = "sharing_paused_until"
         private const val KEY_BROADCAST = "broadcast"
     }
 }
