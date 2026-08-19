@@ -56,6 +56,7 @@ class ListeningService : NotificationListenerService() {
         ticker.removeCallbacks(heartbeat)
         if (this::capture.isInitialized) capture.tick()
         sessionManager?.removeOnActiveSessionsChangedListener(listener)
+        Sessions.clear()
         detachAll()
         super.onListenerDisconnected()
     }
@@ -71,7 +72,10 @@ class ListeningService : NotificationListenerService() {
         }
         capture.closeAllExcept(livePackages)
 
+        Sessions.keepOnly(livePackages)
+
         for (controller in live) {
+            Sessions.put(controller.packageName, controller)
             if (attached.containsKey(controller.packageName)) continue
             attached[controller.packageName] = controller to capture.attach(controller)
         }

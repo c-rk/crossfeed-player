@@ -164,6 +164,9 @@ fun ListeningScreen() {
         Spacer(Modifier.height(Space.medium))
         Text("listening", style = Type.wordmark, color = glass.ink)
 
+        Spacer(Modifier.height(Space.medium))
+        NowCard()
+
         if (!capturing) {
             Spacer(Modifier.height(Space.medium))
             GlassCard {
@@ -847,7 +850,7 @@ private fun PlayTile(
 
 private const val FEED_PREVIEW = 12
 
-private fun appLabel(context: Context, pkg: String): String = runCatching {
+fun appLabel(context: Context, pkg: String): String = runCatching {
     val manager = context.packageManager
     manager.getApplicationLabel(manager.getApplicationInfo(pkg, 0)).toString().lowercase()
 }.getOrDefault(pkg.substringAfterLast('.'))

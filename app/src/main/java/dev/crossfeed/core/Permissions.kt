@@ -43,6 +43,18 @@ object Permissions {
     fun all(context: Context): List<Permit> = buildList {
         add(
             Permit(
+                id = CONTROL,
+                label = "live control",
+                unlocks = "this is the one that matters. it is how crossfeed reads the now playing " +
+                    "card of every music app, so without it the listening page stays empty. it also " +
+                    "gives the moving progress bar, scrolling lyrics, and play, pause, skip and seek " +
+                    "for whatever is playing, in any app",
+                ask = Ask.Screen(::openListenerSettings),
+                granted = ListeningService.enabled(context),
+            ),
+        )
+        add(
+            Permit(
                 id = AUDIO,
                 label = "your music files",
                 unlocks = "playing the songs stored on this phone",
@@ -61,16 +73,6 @@ object Permissions {
                 ),
             )
         }
-        add(
-            Permit(
-                id = CONTROL,
-                label = "live control",
-                unlocks = "the moving progress bar, lyrics that scroll with the song, exact timestamps, " +
-                    "and play, pause and seek from inside crossfeed",
-                ask = Ask.Screen(::openListenerSettings),
-                granted = ListeningService.enabled(context),
-            ),
-        )
         add(
             Permit(
                 id = NEARBY,

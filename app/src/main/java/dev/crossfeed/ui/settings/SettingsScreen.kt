@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -171,7 +174,7 @@ fun PermissionsCard(resumes: Int) {
                     )
                 }
                 if (permit.granted) {
-                    Ticked()
+                    Playing()
                 } else {
                     GlassButton(
                         label = "turn on",
@@ -193,15 +196,28 @@ fun PermissionsCard(resumes: Int) {
 }
 
 @Composable
-private fun Ticked() {
+private fun Playing() {
     val glass = LocalGlass.current
-    Box(
-        Modifier
-            .size(24.dp)
-            .clip(CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text("✓", style = Type.headline, color = glass.positive)
+    Canvas(Modifier.size(22.dp)) {
+        val note = glass.positive
+        val stem = size.width * 0.09f
+        drawRect(
+            note,
+            Offset(size.width * 0.42f, size.height * 0.10f),
+            Size(stem, size.height * 0.62f),
+        )
+        drawRect(
+            note,
+            Offset(size.width * 0.42f, size.height * 0.10f),
+            Size(size.width * 0.34f, stem),
+        )
+        drawRect(
+            note,
+            Offset(size.width * 0.67f, size.height * 0.10f),
+            Size(stem, size.height * 0.30f),
+        )
+        drawCircle(note, size.width * 0.15f, Offset(size.width * 0.30f, size.height * 0.74f))
+        drawCircle(note, size.width * 0.12f, Offset(size.width * 0.58f, size.height * 0.42f))
     }
 }
 

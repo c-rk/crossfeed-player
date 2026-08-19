@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -99,6 +100,7 @@ fun SocialScreen() {
     var showNearby by remember { mutableStateOf(false) }
     var showAlerts by remember { mutableStateOf(false) }
     var showFeed by remember { mutableStateOf(false) }
+    var previewGrid by rememberSaveable { mutableStateOf(true) }
     var sharePlays by remember { mutableStateOf(prefs.sharePlays) }
     var broadcast by remember { mutableStateOf(prefs.broadcast) }
     var baseUrl by remember { mutableStateOf(prefs.baseUrl) }
@@ -386,7 +388,17 @@ fun SocialScreen() {
             Spacer(Modifier.height(Space.medium))
             GlassCard {
                 SectionHeader("the feed") {
-                    Text("${posts.size}", style = Type.footnote, color = glass.inkFaint)
+                    Text(
+                        "${posts.size}",
+                        style = Type.footnote,
+                        color = glass.inkFaint,
+                        modifier = Modifier.padding(end = Space.tight),
+                    )
+                    IconAction(
+                        glyph = if (previewGrid) Glyph.LIST else Glyph.GRID,
+                        diameter = 30.dp,
+                        onClick = { previewGrid = !previewGrid },
+                    )
                 }
                 if (posts.isEmpty()) {
                     Text(
@@ -396,7 +408,29 @@ fun SocialScreen() {
                         modifier = Modifier.padding(vertical = Space.small),
                     )
                 }
-                for (post in posts.take(FEED_PREVIEW)) {
+                if (previewGrid) {
+                    val preview = posts.take(FEED_PREVIEW)
+                    for (row in preview.chunked(3)) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = Space.tight),
+                            horizontalArrangement = Arrangement.spacedBy(Space.tight),
+                        ) {
+                            for (post in row) {
+                                Box(Modifier.weight(1f)) {
+                                    PostSquare(
+                                        post = post,
+                                        onOpen = {
+                                            scope.launch { Router.play(context, post.title, post.artist) }
+                                        },
+                                    )
+                                }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+
+                for (post in if (previewGrid) emptyList() else posts.take(FEED_PREVIEW)) {
                     PostCard(
                         post = post,
                         saved = post.id in savedKeys,
@@ -674,6 +708,33 @@ private fun PersonRow(person: Person, state: String, onRemove: () -> Unit) {
         ) {
             Text("×", style = Type.headline, color = glass.inkMuted)
         }
+    }
+}
+
+
+/** A tile in the collapsed feed: the sleeve does the work, the handle says whose it is. */
+@Composable
+private fun PostSquare(post: Post, onOpen: () -> Unit) {
+    val glass = LocalGlass.current
+    Column(Modifier.clickable(onClick = onOpen)) {
+        Box(Modifier.clip(Shapes.tile)) {
+            TrackArt(post.art, post.title, null)
+        }
+        Text(
+            post.title,
+            style = Type.footnote,
+            color = glass.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 5.dp),
+        )
+        Text(
+            "@" + post.handle,
+            style = Type.caps,
+            color = glass.inkFaint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
