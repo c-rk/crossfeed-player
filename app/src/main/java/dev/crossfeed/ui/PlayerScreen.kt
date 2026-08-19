@@ -1,6 +1,7 @@
 package dev.crossfeed.ui
 
 import androidx.compose.foundation.Image
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,7 +61,9 @@ import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun PlayerScreen() {
@@ -87,9 +90,12 @@ fun PlayerScreen() {
             delay(240)
             val mine = Sources.search(context, query, limit = 120)
             val known = mine.map { fold(it.title, it.artist) }.toSet()
-            val catalog = runCatching {
-                AppleCatalog.search(query, Prefs(context).country, limit = 25)
-            }.getOrDefault(emptyList())
+            // the catalogue is a blocking http call, so it cannot be made from the composition
+            val catalog = withContext(Dispatchers.IO) {
+                runCatching { AppleCatalog.search(query, Prefs(context).country, limit = 25) }
+                    .onFailure { Log.w("PlayerScreen", "catalogue search failed", it) }
+                    .getOrDefault(emptyList())
+            }
                 .filterNot { fold(it.title, it.artist) in known }
                 .map {
                     Track(
