@@ -42,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -68,7 +69,7 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
     val glass = LocalGlass.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val state by PlayerEngine.state.collectAsStateWithLifecycle()
+    val deck = rememberDeck()
 
     var expanded by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
@@ -96,7 +97,7 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                 .background(glass.deep),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!expanded && state.current != null) {
+            if (!expanded && deck != null) {
                 Box(
                     Modifier
                         .padding(horizontal = Space.small, vertical = Space.tight)
@@ -114,14 +115,14 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                             )
                         },
                 ) {
-                    MiniBar(onOpen = { expanded = true })
+                    MiniBar(deck = deck, onOpen = { expanded = true })
                 }
             }
             navBar()
             Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
         }
 
-        if (offset.value < fullPx && state.current != null) {
+        if (offset.value < fullPx && deck != null) {
             Box(
                 Modifier
                     .fillMaxSize()
@@ -141,7 +142,7 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                             onDragEnd = {
                                 when {
                                     showQueue && travel > 60f -> showQueue = false
-                                    !showQueue && travel < -60f -> showQueue = true
+                                    !showQueue && travel < -60f && deck.local -> showQueue = true
                                     !showQueue && travel > 110f -> expanded = false
                                     else -> scope.launch {
                                         offset.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 340f))
@@ -163,10 +164,14 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                         label = "pane",
                         modifier = Modifier.weight(1f),
                     ) { queue ->
-                        if (queue) QueuePane() else NowPlayingPane()
+                        if (queue) QueuePane() else NowPlayingPane(deck)
                     }
                     Text(
-                        if (showQueue) "swipe down for the player" else "swipe up for the queue",
+                        when {
+                            showQueue -> "swipe down for the player"
+                            deck.local -> "swipe up for the queue"
+                            else -> "its queue stays in that app"
+                        },
                         style = Type.caps,
                         color = glass.inkFaint,
                         modifier = Modifier
@@ -200,12 +205,10 @@ private fun Handle(onTap: () -> Unit) {
 }
 
 @Composable
-private fun MiniBar(onOpen: () -> Unit) {
+private fun MiniBar(deck: Deck, onOpen: () -> Unit) {
     val glass = LocalGlass.current
-    val state by PlayerEngine.state.collectAsStateWithLifecycle()
-    val track = state.current ?: return
-    val progress = if (state.durationMs > 0) {
-        (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    val progress = if (deck.durationMs > 0) {
+        (deck.positionMs.toFloat() / deck.durationMs).coerceIn(0f, 1f)
     } else {
         0f
     }
@@ -222,39 +225,40 @@ private fun MiniBar(onOpen: () -> Unit) {
                 .padding(horizontal = Space.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TrackArt(track.artwork, track.title, 44.dp)
+            TrackArt(deck.artwork, deck.title, 44.dp)
             Column(Modifier.weight(1f).padding(horizontal = Space.small)) {
                 Text(
-                    track.title,
+                    deck.title,
                     style = Type.callout,
                     color = glass.ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    track.artist ?: "unknown artist",
+                    deck.artist ?: "unknown artist",
                     style = Type.footnote,
                     color = glass.inkFaint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconAction(
-                glyph = if (state.playing) Glyph.PAUSE else Glyph.PLAY,
-                filled = true,
-                diameter = 40.dp,
-            ) { PlayerEngine.toggle() }
-            Spacer(Modifier.size(Space.tight))
-            IconAction(glyph = Glyph.NEXT, diameter = 34.dp) { PlayerEngine.next() }
+            if (deck.controllable) {
+                IconAction(
+                    glyph = if (deck.playing) Glyph.PAUSE else Glyph.PLAY,
+                    filled = true,
+                    diameter = 40.dp,
+                ) { deck.toggle() }
+                Spacer(Modifier.size(Space.tight))
+                IconAction(glyph = Glyph.NEXT, diameter = 34.dp) { deck.next() }
+            }
         }
     }
 }
 
 @Composable
-private fun NowPlayingPane() {
+private fun NowPlayingPane(deck: Deck) {
     val glass = LocalGlass.current
-    val state by PlayerEngine.state.collectAsStateWithLifecycle()
-    val track = state.current ?: return
+    val context = LocalContext.current
 
     Column(
         Modifier
@@ -266,19 +270,19 @@ private fun NowPlayingPane() {
         Box(
             Modifier
                 .fillMaxWidth(0.82f)
-                .pointerInput(track.id) {
+                .pointerInput(deck.id) {
                     detectHorizontalSwipe(
-                        onLeft = { PlayerEngine.next() },
-                        onRight = { PlayerEngine.previous() },
+                        onLeft = { deck.next() },
+                        onRight = { deck.previous() },
                     )
                 },
         ) {
-            TrackArt(track.artwork, track.title, null)
+            TrackArt(deck.artwork, deck.title, null)
         }
 
         Spacer(Modifier.height(Space.large))
         Text(
-            track.title,
+            deck.title,
             style = Type.title,
             color = glass.ink,
             maxLines = 2,
@@ -286,28 +290,36 @@ private fun NowPlayingPane() {
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         Text(
-            track.artist ?: "unknown artist",
+            deck.artist ?: "unknown artist",
             style = Type.body,
             color = glass.inkMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (!deck.local) {
+            Text(
+                "playing in " + appLabel(context, deck.source.orEmpty()),
+                style = Type.caps,
+                color = glass.accent,
+                modifier = Modifier.padding(top = Space.tight),
+            )
+        }
 
         Spacer(Modifier.height(Space.large))
-        Scrubber(state.positionMs, state.durationMs) { PlayerEngine.seekTo(it) }
+        Scrubber(deck.positionMs, deck.durationMs) { deck.seekTo(it) }
 
         Spacer(Modifier.height(Space.large))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Space.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconAction(glyph = Glyph.PREVIOUS, diameter = 48.dp) { PlayerEngine.previous() }
+            IconAction(glyph = Glyph.PREVIOUS, diameter = 48.dp) { deck.previous() }
             IconAction(
-                glyph = if (state.playing) Glyph.PAUSE else Glyph.PLAY,
+                glyph = if (deck.playing) Glyph.PAUSE else Glyph.PLAY,
                 filled = true,
                 diameter = 74.dp,
-            ) { PlayerEngine.toggle() }
-            IconAction(glyph = Glyph.NEXT, diameter = 48.dp) { PlayerEngine.next() }
+            ) { deck.toggle() }
+            IconAction(glyph = Glyph.NEXT, diameter = 48.dp) { deck.next() }
         }
     }
 }
