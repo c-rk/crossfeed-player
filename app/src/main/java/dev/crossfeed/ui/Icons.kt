@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.ui.theme.LocalGlass
 
-enum class Glyph { PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST }
+enum class Glyph { PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST, CLOSE }
 
 @Composable
 fun IconAction(
@@ -156,6 +156,17 @@ fun IconAction(
                             androidx.compose.ui.geometry.Size(w, bar),
                         )
                     }
+                }
+
+                Glyph.CLOSE -> {
+                    val stroke = Stroke(width = w * 0.14f)
+                    val cross = Path().apply {
+                        moveTo(w * 0.12f, h * 0.12f)
+                        lineTo(w * 0.88f, h * 0.88f)
+                        moveTo(w * 0.88f, h * 0.12f)
+                        lineTo(w * 0.12f, h * 0.88f)
+                    }
+                    drawPath(cross, ink, style = stroke)
                 }
 
                 Glyph.BELL -> {

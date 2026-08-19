@@ -73,6 +73,9 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
 
     var expanded by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+    var hidden by remember { mutableStateOf(false) }
+
+    LaunchedEffect(deck?.id) { hidden = false }
 
     BackHandler(enabled = expanded) {
         if (showQueue) showQueue = false else expanded = false
@@ -97,7 +100,7 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                 .background(glass.deep),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!expanded && deck != null) {
+            if (!expanded && deck != null && !hidden) {
                 Box(
                     Modifier
                         .padding(horizontal = Space.small, vertical = Space.tight)
@@ -113,9 +116,16 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                                 },
                                 onDragEnd = { if (travel < -40f) expanded = true },
                             )
+                        }
+                        .pointerInput(Unit) {
+                            detectHorizontalSwipe(onLeft = { hidden = true }, onRight = { hidden = true })
                         },
                 ) {
-                    MiniBar(deck = deck, onOpen = { expanded = true })
+                    MiniBar(
+                        deck = deck,
+                        onOpen = { expanded = true },
+                        onHide = { hidden = true },
+                    )
                 }
             }
             navBar()
@@ -205,7 +215,7 @@ private fun Handle(onTap: () -> Unit) {
 }
 
 @Composable
-private fun MiniBar(deck: Deck, onOpen: () -> Unit) {
+private fun MiniBar(deck: Deck, onOpen: () -> Unit, onHide: () -> Unit) {
     val glass = LocalGlass.current
     val progress = if (deck.durationMs > 0) {
         (deck.positionMs.toFloat() / deck.durationMs).coerceIn(0f, 1f)
@@ -251,6 +261,8 @@ private fun MiniBar(deck: Deck, onOpen: () -> Unit) {
                 Spacer(Modifier.size(Space.tight))
                 IconAction(glyph = Glyph.NEXT, diameter = 34.dp) { deck.next() }
             }
+            Spacer(Modifier.size(Space.tight))
+            IconAction(glyph = Glyph.CLOSE, diameter = 30.dp, onClick = onHide)
         }
     }
 }
