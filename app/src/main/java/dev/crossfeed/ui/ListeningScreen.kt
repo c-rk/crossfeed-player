@@ -212,7 +212,7 @@ fun ListeningScreen() {
         GlassCard {
             SectionHeader("i listened to...")
             Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-                Stat("minutes", Stats.minutes(data?.summary?.listenedMs ?: 0), Modifier.weight(1f))
+                Stat("time", Stats.minutes(data?.summary?.listenedMs ?: 0), Modifier.weight(1f))
                 Stat("plays", "${data?.summary?.totalPlays ?: 0}", Modifier.weight(1f))
             }
             Spacer(Modifier.height(Space.small))
@@ -451,96 +451,6 @@ fun ListeningScreen() {
             }
         }
 
-        Spacer(Modifier.height(Space.medium))
-        GlassCard {
-            SectionHeader("storage")
-            Text(
-                "the feed lives in listening.db, private to crossfeed. erasing it frees space. " +
-                    "your stats above are kept whatever you delete.",
-                style = Type.footnote,
-                color = glass.inkMuted,
-            )
-            Spacer(Modifier.height(Space.small))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("$feedRows rows on disk", style = Type.body, color = glass.inkMuted)
-                Text(Stats.bytes(dbSize), style = Type.headline, color = glass.ink)
-            }
-
-            Spacer(Modifier.height(Space.medium))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("erase anything older than", style = Type.body, color = glass.inkMuted)
-                Spacer(Modifier.weight(1f))
-                Text("$eraseDays days", style = Type.headline, color = glass.ink)
-            }
-            Slider(
-                value = eraseDays.toFloat(),
-                onValueChange = { eraseDays = it.toInt().coerceAtLeast(1) },
-                valueRange = 1f..365f,
-                colors = SliderDefaults.colors(
-                    thumbColor = glass.accent,
-                    activeTrackColor = glass.accent,
-                    inactiveTrackColor = glass.fill,
-                ),
-            )
-            GlassButton(label = "erase", compact = true, onClick = { confirming = true })
-        }
-
-        Spacer(Modifier.height(Space.medium))
-        GlassCard {
-            SectionHeader("export")
-            Text(
-                "every play, every total, every finish rate, written to a spreadsheet you own. " +
-                    "eleven sheets, saved to downloads.",
-                style = Type.footnote,
-                color = glass.inkMuted,
-            )
-            Spacer(Modifier.height(Space.small))
-            Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-                GlassButton(
-                    label = if (exporting) "writing…" else "export .xlsx",
-                    filled = true,
-                    enabled = !exporting,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        exporting = true
-                        scope.launch {
-                            runCatching { Workbook.export(context) }
-                                .onSuccess {
-                                    exported = it
-                                    exportNote = "exported ${it.path} · ${Stats.bytes(it.bytes)}"
-                                }
-                                .onFailure { exportNote = "could not write the file" }
-                            exporting = false
-                        }
-                    },
-                )
-                exported?.let { file ->
-                    GlassButton(
-                        label = "send",
-                        modifier = Modifier.weight(1f),
-                        onClick = { Workbook.share(context, file) },
-                    )
-                }
-            }
-            Spacer(Modifier.height(Space.small))
-            GlassButton(
-                label = if (importing) "reading…" else "import .xlsx",
-                enabled = !importing,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { picker.launch(arrayOf(Workbook.MIME, "application/octet-stream", "*/*")) },
-            )
-            Text(
-                "brings a previous export back into this phone. plays already here are left alone.",
-                style = Type.footnote,
-                color = glass.inkFaint,
-                modifier = Modifier.padding(top = Space.tight),
-            )
-            exportNote?.let {
-                Spacer(Modifier.height(Space.tight))
-                Text(it, style = Type.footnote, color = glass.inkMuted)
-            }
-        }
-
         Spacer(Modifier.height(110.dp))
     }
 
@@ -688,7 +598,7 @@ private fun timeLabel(millis: Long): String =
     SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(millis))
 
 @Composable
-private fun ConfirmErase(days: Int, onCancel: () -> Unit, onConfirm: () -> Unit) {
+fun ConfirmErase(days: Int, onCancel: () -> Unit, onConfirm: () -> Unit) {
     val glass = LocalGlass.current
     Dialog(onDismissRequest = onCancel) {
         GlassCard(strong = true) {

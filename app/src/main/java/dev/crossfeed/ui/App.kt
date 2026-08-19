@@ -1,5 +1,6 @@
 package dev.crossfeed.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,32 +9,31 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.crossfeed.ui.settings.SettingsScreen
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 
 @Composable
 fun CrossfeedApp() {
-    var tab by rememberSaveable { mutableStateOf(0) }
+    val nav = rememberNav()
+
+    BackHandler(enabled = nav.canPop) { nav.pop() }
 
     Backdrop {
         Box(
@@ -41,19 +41,20 @@ fun CrossfeedApp() {
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars),
         ) {
-            Crossfade(targetState = tab, label = "tab") { current ->
-                when (current) {
-                    0 -> RouteScreen()
-                    1 -> PlayerScreen()
-                    2 -> ListeningScreen()
-                    else -> SocialScreen()
+            Crossfade(targetState = nav.current, label = "dest") { dest ->
+                when (dest) {
+                    Dest.HOME -> ListeningScreen()
+                    Dest.AUX -> SocialScreen()
+                    Dest.PLAYER -> PlayerScreen()
+                    Dest.SETTINGS -> SettingsScreen(nav)
+                    Dest.ROUTE -> Sub("route", nav::pop) { RouteScreen() }
                 }
             }
         }
         PlayerSheet {
             TabBar(
-                selected = tab,
-                onSelect = { tab = it },
+                selected = nav.root,
+                onSelect = nav::select,
                 modifier = Modifier.padding(bottom = Space.small),
             )
         }
@@ -61,7 +62,32 @@ fun CrossfeedApp() {
 }
 
 @Composable
-private fun TabBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun Sub(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+    val glass = LocalGlass.current
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Space.large, vertical = Space.medium),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onBack)
+                    .padding(horizontal = Space.small, vertical = 4.dp),
+            ) {
+                Text("back", style = Type.caps, color = glass.inkMuted)
+            }
+            Spacer(Modifier.padding(horizontal = Space.tight))
+            Text(title, style = Type.blockTitle, color = glass.ink)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun TabBar(selected: Dest, onSelect: (Dest) -> Unit, modifier: Modifier = Modifier) {
     val glass = LocalGlass.current
     val shape = RoundedCornerShape(50)
     Row(
@@ -71,16 +97,16 @@ private fun TabBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = 
             .background(Brush.verticalGradient(listOf(glass.fill, Color.Transparent)))
             .border(1.dp, glass.stroke, shape)
             .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Tab("route", selected == 0) { onSelect(0) }
-        Tab("player", selected == 1) { onSelect(1) }
-        Tab("listening", selected == 2) { onSelect(2) }
-        Tab("auxshare", selected == 3) { onSelect(3) }
+        for (dest in Roots) {
+            Tab(dest, selected == dest) { onSelect(dest) }
+        }
     }
 }
 
 @Composable
-private fun Tab(label: String, active: Boolean, onClick: () -> Unit) {
+private fun Tab(dest: Dest, active: Boolean, onClick: () -> Unit) {
     val glass = LocalGlass.current
     val shape = RoundedCornerShape(50)
     Box(
@@ -94,13 +120,17 @@ private fun Tab(label: String, active: Boolean, onClick: () -> Unit) {
                 },
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 17.dp, vertical = 11.dp),
+            .padding(horizontal = if (dest == Dest.SETTINGS) 12.dp else 14.dp, vertical = 11.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            style = Type.callout,
-            color = if (active) Color.White else glass.ink,
-        )
+        if (dest == Dest.SETTINGS) {
+            Gear(active = active)
+        } else {
+            Text(
+                dest.label,
+                style = Type.callout,
+                color = if (active) Color.White else glass.ink,
+            )
+        }
     }
 }

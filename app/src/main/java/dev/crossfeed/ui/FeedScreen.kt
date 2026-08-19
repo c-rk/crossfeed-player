@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +34,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,6 +83,7 @@ fun FeedScreen(
     var saved by remember { mutableStateOf(savedKeys) }
     var openId by remember { mutableStateOf<String?>(null) }
     var pickerId by remember { mutableStateOf<String?>(null) }
+    var grid by rememberSaveable { mutableStateOf(true) }
 
     val nearEnd by remember {
         derivedStateOf {
@@ -128,6 +131,12 @@ fun FeedScreen(
                         color = glass.ink,
                         modifier = Modifier.weight(1f).padding(start = 6.dp),
                     )
+                    IconAction(
+                        glyph = if (grid) Glyph.LIST else Glyph.GRID,
+                        diameter = 36.dp,
+                        onClick = { grid = !grid },
+                    )
+                    Spacer(Modifier.width(Space.tight))
                     GlassButton(label = "close", compact = true, onClick = onClose)
                 }
                 Text(
@@ -138,13 +147,42 @@ fun FeedScreen(
                 )
 
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(if (grid) 3 else 1),
                     state = gridState,
                     horizontalArrangement = Arrangement.spacedBy(Space.tight),
                     verticalArrangement = Arrangement.spacedBy(Space.small),
                     modifier = Modifier.weight(1f),
                 ) {
                     items(posts, key = { it.id }) { post ->
+                        if (!grid) {
+                            PostCard(
+                                post = post,
+                                saved = post.id in saved,
+                                onReact = { emoji -> apply(post, emoji) },
+                                onListen = {
+                                    scope.launch { Router.play(context, post.title, post.artist) }
+                                },
+                                onOpen = {
+                                    scope.launch { Router.play(context, post.title, post.artist) }
+                                },
+                                onSave = {
+                                    saved = saved + post.id
+                                    onSave(post)
+                                },
+                                onRemove = if (post.self) {
+                                    {
+                                        scope.launch {
+                                            runCatching { Social.remove(context, post.id) }
+                                            posts = posts.filterNot { it.id == post.id }
+                                            onRemoved()
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                            )
+                            return@items
+                        }
                         PostTile(
                             post = post,
                             saved = post.id in saved,

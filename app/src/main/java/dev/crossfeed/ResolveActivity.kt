@@ -24,7 +24,11 @@ class ResolveActivity : ComponentActivity() {
         }
         setContent {
             CrossfeedTheme {
-                ResolveOverlay(url = url, onDone = { dismiss() })
+                ResolveOverlay(
+                    url = url,
+                    shared = intent?.action == Intent.ACTION_SEND,
+                    onDone = { dismiss() },
+                )
             }
         }
     }

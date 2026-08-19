@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -30,10 +31,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -44,6 +47,9 @@ import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Artwork
 import dev.crossfeed.core.LocalLibrary
 import dev.crossfeed.core.player.Bucket
+import dev.crossfeed.core.AppleCatalog
+import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.Router
 import dev.crossfeed.core.player.Category
 import dev.crossfeed.core.player.LocalBrowse
 import dev.crossfeed.core.player.PlayerEngine
@@ -54,6 +60,7 @@ import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerScreen() {
@@ -61,10 +68,14 @@ fun PlayerScreen() {
     val glass = LocalGlass.current
 
     var query by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf(Category.SONGS) }
-    var grid by rememberSaveable { mutableStateOf(false) }
+    var category by rememberSaveable { mutableStateOf(Category.ALBUMS) }
+    var grid by rememberSaveable { mutableStateOf(true) }
     var openKey by rememberSaveable { mutableStateOf<String?>(null) }
     var folderRoot by rememberSaveable { mutableStateOf<String?>(null) }
+    var section by rememberSaveable { mutableStateOf(Section.SONGS) }
+    var pick by rememberSaveable { mutableStateOf<String?>(null) }
+    var linksFor by remember { mutableStateOf<Track?>(null) }
+    val scope = rememberCoroutineScope()
 
     var tracks by remember { mutableStateOf(emptyList<Track>()) }
     var buckets by remember { mutableStateOf(emptyList<Bucket>()) }
@@ -74,7 +85,24 @@ fun PlayerScreen() {
         loading = true
         if (query.isNotBlank()) {
             delay(240)
-            tracks = Sources.search(context, query, limit = 120)
+            val mine = Sources.search(context, query, limit = 120)
+            val known = mine.map { fold(it.title, it.artist) }.toSet()
+            val catalog = runCatching {
+                AppleCatalog.search(query, Prefs(context).country, limit = 25)
+            }.getOrDefault(emptyList())
+                .filterNot { fold(it.title, it.artist) in known }
+                .map {
+                    Track(
+                        id = "catalog:" + it.url,
+                        title = it.title,
+                        artist = it.artist,
+                        album = it.album,
+                        artwork = it.artwork,
+                        sourceId = CATALOG,
+                        ref = "",
+                    )
+                }
+            tracks = mine + catalog
             buckets = emptyList()
         } else if (category == Category.SONGS) {
             tracks = LocalBrowse.songs(context)
@@ -94,6 +122,48 @@ fun PlayerScreen() {
         loading = false
     }
 
+    val searching = query.isNotBlank()
+
+    val groups = remember(tracks, section, searching) {
+        if (!searching || section == Section.SONGS) {
+            emptyMap()
+        } else {
+            tracks.groupBy { track ->
+                val name = if (section == Section.ALBUMS) track.album else track.artist
+                name?.takeIf { it.isNotBlank() } ?: "unknown"
+            }
+        }
+    }
+    val groupBuckets = remember(groups) {
+        groups.entries
+            .sortedByDescending { it.value.size }
+            .map { (name, list) ->
+                Bucket(
+                    key = name,
+                    title = name,
+                    subtitle = if (section == Section.ALBUMS) list.first().artist else "${list.size} tracks",
+                    artwork = list.firstNotNullOfOrNull { it.artwork },
+                    count = list.size,
+                )
+            }
+    }
+    val shown = when {
+        !searching -> tracks
+        section == Section.SONGS -> tracks
+        pick != null -> groups[pick] ?: emptyList()
+        else -> emptyList()
+    }
+    val shownBuckets = if (searching && section != Section.SONGS && pick == null) groupBuckets else buckets
+
+    fun start(track: Track, from: List<Track>) {
+        if (track.sourceId == CATALOG) {
+            scope.launch { Router.play(context, track.title, track.artist) }
+            return
+        }
+        val playable = from.filterNot { it.sourceId == CATALOG }
+        PlayerEngine.play(context, playable, playable.indexOf(track).coerceAtLeast(0))
+    }
+
     val columns = if (grid) 3 else 1
 
     Column(Modifier.fillMaxSize().padding(horizontal = Space.large)) {
@@ -110,7 +180,9 @@ fun PlayerScreen() {
                     when {
                         loading -> "reading your library…"
                         openKey != null -> "${tracks.size} tracks"
-                        query.isNotBlank() -> "${tracks.size} results"
+                        searching && section != Section.SONGS && pick == null ->
+                            "${groupBuckets.size} ${section.name.lowercase()}"
+                        searching -> "${shown.size} results"
                         category == Category.SONGS -> "${tracks.size} tracks"
                         category == Category.FOLDERS ->
                             "${buckets.size} folders · ${tracks.size} tracks"
@@ -131,6 +203,25 @@ fun PlayerScreen() {
             placeholder = "search everything",
             modifier = Modifier.fillMaxWidth(),
         )
+
+        if (searching) {
+            Spacer(Modifier.height(Space.small))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(Space.tight),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (pick != null) {
+                    Chip("‹ back", selected = false) { pick = null }
+                }
+                for (option in Section.entries) {
+                    Chip(option.name.lowercase(), selected = section == option && pick == null) {
+                        section = option
+                        pick = null
+                    }
+                }
+            }
+        }
 
         if (query.isBlank()) {
             Spacer(Modifier.height(Space.small))
@@ -174,35 +265,48 @@ fun PlayerScreen() {
             verticalArrangement = Arrangement.spacedBy(if (grid) Space.small else 0.dp),
             modifier = Modifier.weight(1f),
         ) {
-            if (buckets.isNotEmpty()) {
-                items(buckets, key = { "b:${it.key}" }) { bucket ->
-                    if (grid) {
-                        BucketTile(bucket) { openKey = bucket.key }
-                    } else {
-                        BucketRow(bucket) { openKey = bucket.key }
-                    }
+            if (shownBuckets.isNotEmpty()) {
+                items(shownBuckets, key = { "b:" + it.key }) { bucket ->
+                    val open = { if (searching) pick = bucket.key else openKey = bucket.key }
+                    if (grid) BucketTile(bucket, open) else BucketRow(bucket, open)
                 }
             }
-            items(tracks, key = { it.id }) { track ->
-                val index = tracks.indexOf(track)
+            items(shown, key = { it.id }) { track ->
+                val local = track.sourceId != CATALOG
                 if (grid) {
                     TrackTile(
                         track = track,
-                        onPlay = { PlayerEngine.play(context, tracks, index) },
+                        local = local && searching,
+                        onPlay = { start(track, shown) },
                         onQueue = { PlayerEngine.addLast(context, track) },
+                        onLinks = { linksFor = track },
                     )
                 } else {
                     TrackRow(
                         track = track,
-                        onPlay = { PlayerEngine.play(context, tracks, index) },
+                        local = local && searching,
+                        onPlay = { start(track, shown) },
                         onQueue = { PlayerEngine.addLast(context, track) },
+                        onLinks = { linksFor = track },
                     )
                 }
             }
             item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(150.dp)) }
         }
     }
+
+    linksFor?.let { track ->
+        LinksSheet(title = track.title, artist = track.artist, onDismiss = { linksFor = null })
+    }
 }
+
+enum class Section { SONGS, ALBUMS, ARTISTS }
+
+/** A catalogue result is a song we know of but cannot play ourselves. */
+const val CATALOG = "catalog"
+
+private fun fold(title: String, artist: String?): String =
+    (title + "|" + (artist ?: "")).lowercase().filter { it.isLetterOrDigit() || it == '|' }
 
 @Composable
 private fun LayoutToggle(grid: Boolean, onToggle: () -> Unit) {
@@ -248,7 +352,13 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TrackRow(track: Track, onPlay: () -> Unit, onQueue: () -> Unit) {
+private fun TrackRow(
+    track: Track,
+    local: Boolean,
+    onPlay: () -> Unit,
+    onQueue: () -> Unit,
+    onLinks: () -> Unit,
+) {
     val glass = LocalGlass.current
     Row(
         Modifier
@@ -266,20 +376,38 @@ private fun TrackRow(track: Track, onPlay: () -> Unit, onQueue: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                track.artist ?: "unknown artist",
-                style = Type.footnote,
-                color = glass.inkFaint,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (local) {
+                    Text(
+                        "local",
+                        style = Type.caps,
+                        color = glass.accent,
+                        modifier = Modifier.padding(end = Space.tight),
+                    )
+                }
+                Text(
+                    track.artist ?: "unknown artist",
+                    style = Type.footnote,
+                    color = glass.inkFaint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+        IconAction(glyph = Glyph.LINK, diameter = 30.dp, onClick = onLinks)
+        Spacer(Modifier.width(Space.tight))
         IconAction(glyph = Glyph.PLUS, diameter = 30.dp, onClick = onQueue)
     }
 }
 
 @Composable
-private fun TrackTile(track: Track, onPlay: () -> Unit, onQueue: () -> Unit) {
+private fun TrackTile(
+    track: Track,
+    local: Boolean,
+    onPlay: () -> Unit,
+    onQueue: () -> Unit,
+    onLinks: () -> Unit,
+) {
     val glass = LocalGlass.current
     Column(Modifier.clickable(onClick = onPlay)) {
         Box {
@@ -290,6 +418,26 @@ private fun TrackTile(track: Track, onPlay: () -> Unit, onQueue: () -> Unit) {
                     .padding(5.dp),
             ) {
                 IconAction(glyph = Glyph.PLUS, diameter = 26.dp, onClick = onQueue)
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(5.dp),
+            ) {
+                IconAction(glyph = Glyph.LINK, diameter = 26.dp, onClick = onLinks)
+            }
+            if (local) {
+                Text(
+                    "local",
+                    style = Type.caps,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(5.dp)
+                        .clip(CircleShape)
+                        .background(glass.accent)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
             }
         }
         Text(

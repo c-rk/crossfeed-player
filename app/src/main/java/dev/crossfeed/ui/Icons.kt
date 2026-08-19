@@ -16,11 +16,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.ui.theme.LocalGlass
 
-enum class Glyph { PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL }
+enum class Glyph { PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST }
 
 @Composable
 fun IconAction(
@@ -104,6 +105,59 @@ fun IconAction(
                     if (active) drawPath(path, ink) else drawPath(path, ink, style = Stroke(width = w * 0.11f))
                 }
 
+                Glyph.LINK -> {
+                    val stroke = Stroke(width = w * 0.12f)
+                    val arm = Path().apply {
+                        moveTo(w * 0.42f, h * 0.28f)
+                        lineTo(w * 0.62f, h * 0.08f)
+                        cubicTo(w * 0.82f, h * -0.06f, w * 1.06f, h * 0.18f, w * 0.92f, h * 0.38f)
+                        lineTo(w * 0.72f, h * 0.58f)
+                    }
+                    drawPath(arm, ink, style = stroke)
+                    scale(-1f, -1f, Offset(w * 0.5f, h * 0.5f)) { drawPath(arm, ink, style = stroke) }
+                    drawLine(ink, Offset(w * 0.36f, h * 0.64f), Offset(w * 0.64f, h * 0.36f), w * 0.12f)
+                }
+
+                Glyph.COPY -> {
+                    val stroke = Stroke(width = w * 0.11f)
+                    drawRoundRect(
+                        ink,
+                        Offset(0f, h * 0.24f),
+                        androidx.compose.ui.geometry.Size(w * 0.62f, h * 0.76f),
+                        androidx.compose.ui.geometry.CornerRadius(w * 0.12f),
+                        style = stroke,
+                    )
+                    drawRoundRect(
+                        ink,
+                        Offset(w * 0.30f, 0f),
+                        androidx.compose.ui.geometry.Size(w * 0.70f, h * 0.70f),
+                        androidx.compose.ui.geometry.CornerRadius(w * 0.12f),
+                        style = stroke,
+                    )
+                }
+
+                Glyph.GRID -> {
+                    val cell = w * 0.40f
+                    for (x in 0..1) for (y in 0..1) {
+                        drawRect(
+                            ink,
+                            Offset(x * (w - cell), y * (h - cell)),
+                            androidx.compose.ui.geometry.Size(cell, cell),
+                        )
+                    }
+                }
+
+                Glyph.LIST -> {
+                    val bar = h * 0.18f
+                    for (row in 0..2) {
+                        drawRect(
+                            ink,
+                            Offset(0f, row * (h - bar) / 2f),
+                            androidx.compose.ui.geometry.Size(w, bar),
+                        )
+                    }
+                }
+
                 Glyph.BELL -> {
                     val path = Path().apply {
                         moveTo(w * 0.16f, h * 0.72f)
@@ -117,6 +171,24 @@ fun IconAction(
                     drawPath(path, ink)
                     drawCircle(ink, w * 0.11f, Offset(w * 0.5f, h * 0.88f))
                 }
+            }
+        }
+    }
+}
+
+/** The tab bar wears a gear rather than the word, so the row stays short. */
+@Composable
+fun Gear(active: Boolean) {
+    val glass = LocalGlass.current
+    val ink = if (active) Color.White else glass.ink
+    Canvas(Modifier.size(19.dp)) {
+        val radius = size.minDimension * 0.30f
+        val centre = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(ink, radius, centre, style = Stroke(width = size.width * 0.13f))
+        val tooth = androidx.compose.ui.geometry.Size(size.width * 0.13f, size.height * 0.20f)
+        repeat(8) { index ->
+            rotate(index * 45f, centre) {
+                drawRect(ink, Offset(centre.x - tooth.width / 2f, 0f), tooth)
             }
         }
     }

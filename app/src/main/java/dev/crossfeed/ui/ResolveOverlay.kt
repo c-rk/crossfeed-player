@@ -53,7 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun ResolveOverlay(url: String, onDone: () -> Unit) {
+fun ResolveOverlay(url: String, shared: Boolean = false, onDone: () -> Unit) {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val prefs = remember { Prefs(context) }
@@ -81,7 +81,7 @@ fun ResolveOverlay(url: String, onDone: () -> Unit) {
                 ),
             )
         }
-        if (prefs.autoOpen && outcome.decided) {
+        if (prefs.autoOpen && outcome.decided && !shared) {
             openResolved(context, outcome)
             onDone()
         } else {
@@ -219,12 +219,17 @@ private fun Sheet(outcome: Resolved, onDone: () -> Unit) {
     }
 
     for (route in outcome.routes) {
-        PlatformRow(
-            platform = route.platform,
-            badge = if (route.exact) "exact" else "search",
-        ) {
-            Opener.open(context, route.platform, route.url)
-            onDone()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                PlatformRow(
+                    platform = route.platform,
+                    badge = if (route.exact) "exact" else "search",
+                ) {
+                    Opener.open(context, route.platform, route.url)
+                    onDone()
+                }
+            }
+            IconAction(glyph = Glyph.COPY, diameter = 32.dp) { copyLink(context, route.url) }
         }
     }
 
