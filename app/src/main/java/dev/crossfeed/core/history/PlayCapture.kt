@@ -5,8 +5,16 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.PlaybackState
 import dev.crossfeed.core.net.Publisher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlayCapture(private val context: Context) {
+
+    /** Whether a source has earned its place in the diary yet. */
+    private enum class Proof { NONE, PENDING, ACCEPTED, REJECTED }
 
     private class Session(
         var title: String,
@@ -21,6 +29,7 @@ class PlayCapture(private val context: Context) {
         var committed: Long = 0,
         var finalized: Boolean = false,
         var artworkRetries: Int = 0,
+        var proof: Proof = Proof.NONE,
     ) {
         fun key() = "${title.trim().lowercase()}|${artist.orEmpty().trim().lowercase()}"
 
@@ -28,6 +37,7 @@ class PlayCapture(private val context: Context) {
     }
 
     private val sessions = HashMap<String, Session>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var runStartedAt = 0L
     private var runLastSeen = 0L
 
@@ -45,14 +55,18 @@ class PlayCapture(private val context: Context) {
             return
         }
         close(pkg)
-        sessions[pkg] = Session(
+        val unproven = SourceFilter.needsProof(context, pkg)
+        val session = Session(
             title = title,
             artist = artist?.trim()?.takeIf { it.isNotEmpty() },
             album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM),
             durationMs = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION).coerceAtLeast(0),
             artwork = artworkOf(metadata, "$title|${artist.orEmpty()}"),
             startedAt = System.currentTimeMillis(),
+            proof = if (unproven) Proof.PENDING else Proof.NONE,
         )
+        sessions[pkg] = session
+        if (unproven) verify(pkg, session, title, artist)
         applyState(pkg, state)
     }
 
@@ -71,6 +85,8 @@ class PlayCapture(private val context: Context) {
     }
 
     private fun announce(pkg: String, session: Session, playing: Boolean, state: PlaybackState?) {
+        // an unproven video is not shown as now playing either, or a lecture leads the page
+        if (session.proof == Proof.PENDING || session.proof == Proof.REJECTED) return
         val reported = state?.position ?: 0L
         val since = state?.lastPositionUpdateTime?.takeIf { it > 0 }
             ?.let { android.os.SystemClock.elapsedRealtime() - it } ?: 0L
@@ -143,10 +159,36 @@ class PlayCapture(private val context: Context) {
         return uri?.takeIf { it.isNotBlank() }
     }
 
+
+    /**
+     * Asks the catalogue whether this video is a record anyone released. Until it answers, the
+     * session is held: nothing is written and nothing is shown as playing.
+     */
+    private fun verify(pkg: String, session: Session, title: String, artist: String?) {
+        scope.launch {
+            val match = VideoTitles.identify(context, title, artist)
+            withContext(Dispatchers.Main) {
+                if (sessions[pkg] !== session) return@withContext
+                if (match == null) {
+                    session.proof = Proof.REJECTED
+                    return@withContext
+                }
+                session.title = match.title
+                session.artist = match.artist
+                session.album = match.album ?: session.album
+                if (match.artwork != null) session.artwork = match.artwork
+                session.proof = Proof.ACCEPTED
+            }
+        }
+    }
+
     private fun persist(pkg: String, session: Session) {
+        if (session.proof == Proof.PENDING || session.proof == Proof.REJECTED) return
         val now = System.currentTimeMillis()
         val listened = session.listened(now)
         if (listened < MIN_LISTEN_MS) return
+        // a video has to be stayed with longer than a song before it counts as listening
+        if (session.proof == Proof.ACCEPTED && listened < PROVEN_MIN_LISTEN_MS) return
         val db = HistoryDb.get(context)
 
         if (session.rowId == null) {
@@ -220,6 +262,7 @@ class PlayCapture(private val context: Context) {
         const val LONGEST_RUN = "longest_run_ms"
         const val RUN_GAP_MS = 5 * 60_000L
         const val MIN_LISTEN_MS = 20_000L
+        const val PROVEN_MIN_LISTEN_MS = 60_000L
         const val RESUME_WINDOW_MS = 60 * 60_000L
     }
 }

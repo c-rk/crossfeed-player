@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaMetadata
 import android.net.Uri
+import dev.crossfeed.core.Prefs
 
 object SourceFilter {
 
@@ -63,10 +64,20 @@ object SourceFilter {
         found
     }
 
+    /** A source whose word cannot be taken for it: every video there is, music or otherwise. */
+    fun needsProof(context: Context, pkg: String): Boolean =
+        pkg !in musicApps && (pkg in videoApps || pkg in browsers(context))
+
     fun allow(context: Context, pkg: String, metadata: MediaMetadata?): Boolean {
         if (pkg in musicApps) return true
-        if (pkg in videoApps) return false
-        if (pkg in browsers(context)) return false
+
+        if (needsProof(context, pkg)) {
+            if (!Prefs(context).countBrowserMusic) return false
+            if (metadata == null) return false
+            // a song has a length; a stream reports none and a lecture reports far too much
+            val length = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
+            return length in 1..MAX_TRACK_MS
+        }
 
         if (metadata == null) return false
         val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST)

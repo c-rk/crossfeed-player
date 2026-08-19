@@ -86,6 +86,9 @@ fun SettingsScreen(nav: Nav) {
         PermissionsCard(reads)
 
         Spacer(Modifier.height(Space.medium))
+        CaptureCard()
+
+        Spacer(Modifier.height(Space.medium))
         SharingCard()
 
         Spacer(Modifier.height(Space.medium))
