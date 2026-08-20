@@ -174,6 +174,10 @@ class PlayCapture(private val context: Context) {
                     // so an album alongside an artist is worth taking at its word
                     val vouched = !session.artist.isNullOrBlank() && !session.album.isNullOrBlank()
                     session.proof = if (vouched) Proof.ACCEPTED else Proof.REJECTED
+                    if (vouched) {
+                        announce(pkg, session, session.playingSince != null, null)
+                        persist(pkg, session)
+                    }
                     return@withContext
                 }
                 session.title = match.title
@@ -181,6 +185,10 @@ class PlayCapture(private val context: Context) {
                 session.album = match.album ?: session.album
                 if (match.artwork != null) session.artwork = match.artwork
                 session.proof = Proof.ACCEPTED
+                // the answer arrives after the session went quiet, and a browser may not report
+                // anything again for minutes, so what was held back is released here
+                announce(pkg, session, session.playingSince != null, null)
+                persist(pkg, session)
             }
         }
     }

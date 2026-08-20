@@ -86,6 +86,8 @@ object SourceFilter {
         val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST)
             ?: metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
         if (artist.isNullOrBlank()) return false
+        // some games and apps put a date or a version where the artist belongs
+        if (artist.matches(Regex("[0-9][0-9./: -]{4,}"))) return false
 
         val duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
         if (duration > MAX_TRACK_MS) return false

@@ -2,6 +2,8 @@ package dev.crossfeed.core.history
 
 import android.content.Context
 import dev.crossfeed.core.AppleCatalog
+import dev.crossfeed.core.Http
+import dev.crossfeed.core.Json
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.TrackMeta
 
@@ -69,19 +71,53 @@ object VideoTitles {
         if (decided.containsKey(key)) return decided[key]
 
         val guess = guess(rawTitle, rawArtist)
+        val country = Prefs(context).country
         val match = guess?.let { (title, artist) ->
             val hit = runCatching {
-                AppleCatalog.find(TrackMeta(title = title, artist = artist), Prefs(context).country)
+                AppleCatalog.find(TrackMeta(title = title, artist = artist), country)
             }.getOrNull()
-            hit?.takeIf { it.score >= CONFIDENCE }?.let {
+            val exact = hit?.takeIf { it.score >= CONFIDENCE }?.let {
                 Match(title = it.title, artist = it.artist, album = it.album, artwork = it.artwork)
             }
+            // a short or obscure title scores badly however real it is, so the artist is asked
+            // about instead: someone the catalogue lists as a recording artist is making music,
+            // whereas a channel name or a game's timestamp is not
+            exact ?: artist?.takeIf { known(it, country) }?.let { Match(title, it, null, null) }
         }
         decided[key] = match
         return match
     }
 
-    fun forget() = decided.clear()
 
-    private const val CONFIDENCE = 0.7
+    private val artists = HashMap<String, Boolean>()
+
+    /** Whether the catalogue lists an artist under this exact name. */
+    private fun known(name: String, country: String): Boolean {
+        val key = name.lowercase()
+        artists[key]?.let { return it }
+        val term = java.net.URLEncoder.encode(name, "UTF-8")
+        val url = "https://itunes.apple.com/search?term=$term&entity=musicArtist&limit=5&country=$country"
+        val body = Http.get(url, accept = "application/json")?.body
+        val root = body?.let { Json.parse(it) }
+        val results = root?.optJSONArray("results")
+        var found = false
+        if (results != null) {
+            for (index in 0 until results.length()) {
+                val listed = results.optJSONObject(index)?.optString("artistName").orEmpty()
+                if (listed.equals(name, ignoreCase = true)) {
+                    found = true
+                    break
+                }
+            }
+        }
+        artists[key] = found
+        return found
+    }
+
+    fun forget() {
+        decided.clear()
+        artists.clear()
+    }
+
+    private const val CONFIDENCE = 0.62
 }
