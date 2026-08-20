@@ -170,7 +170,10 @@ class PlayCapture(private val context: Context) {
             withContext(Dispatchers.Main) {
                 if (sessions[pkg] !== session) return@withContext
                 if (match == null) {
-                    session.proof = Proof.REJECTED
+                    // a music page names the record it is playing from; a video almost never does,
+                    // so an album alongside an artist is worth taking at its word
+                    val vouched = !session.artist.isNullOrBlank() && !session.album.isNullOrBlank()
+                    session.proof = if (vouched) Proof.ACCEPTED else Proof.REJECTED
                     return@withContext
                 }
                 session.title = match.title

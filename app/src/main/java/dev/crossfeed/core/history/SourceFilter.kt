@@ -76,9 +76,10 @@ object SourceFilter {
         if (needsProof(context, pkg)) {
             if (!Prefs(context).countBrowserMusic) return false
             if (metadata == null) return false
-            // a song has a length; a stream reports none and a lecture reports far too much
+            // browsers often publish no length at all, so an unknown one cannot be a refusal;
+            // only a length we know to be far too long rules a session out here
             val length = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
-            return length in 1..MAX_TRACK_MS
+            return length <= 0 || length <= MAX_TRACK_MS
         }
 
         if (metadata == null) return false
