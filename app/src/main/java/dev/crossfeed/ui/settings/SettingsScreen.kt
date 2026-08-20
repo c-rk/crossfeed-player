@@ -92,6 +92,9 @@ fun SettingsScreen(nav: Nav) {
         LyricsCard()
 
         Spacer(Modifier.height(Space.medium))
+        LanguagePacksCard()
+
+        Spacer(Modifier.height(Space.medium))
         SharingCard()
 
         Spacer(Modifier.height(Space.medium))

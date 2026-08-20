@@ -3,8 +3,10 @@ package dev.crossfeed.core.lyrics
 import android.util.Log
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -62,6 +64,49 @@ object Meaning {
             client.close()
         }
     }
+
+
+    /**
+     * Languages worth keeping on the phone before they are needed. Each pack is around thirty
+     * megabytes and every pair pivots through english, so english is always part of the cost.
+     */
+    val commonLanguages: List<Pair<String, String>> = listOf(
+        TranslateLanguage.ENGLISH to "english",
+        TranslateLanguage.TAMIL to "tamil",
+        TranslateLanguage.HINDI to "hindi",
+        TranslateLanguage.KANNADA to "kannada",
+        TranslateLanguage.TELUGU to "telugu",
+        TranslateLanguage.BENGALI to "bengali",
+        TranslateLanguage.MARATHI to "marathi",
+        TranslateLanguage.URDU to "urdu",
+        TranslateLanguage.SPANISH to "spanish",
+        TranslateLanguage.FRENCH to "french",
+        TranslateLanguage.GERMAN to "german",
+        TranslateLanguage.PORTUGUESE to "portuguese",
+        TranslateLanguage.KOREAN to "korean",
+        TranslateLanguage.JAPANESE to "japanese",
+        TranslateLanguage.CHINESE to "chinese",
+        TranslateLanguage.ARABIC to "arabic",
+        TranslateLanguage.RUSSIAN to "russian",
+    )
+
+    private val models = RemoteModelManager.getInstance()
+
+    private fun modelOf(tag: String) = TranslateRemoteModel.Builder(tag).build()
+
+    /** Which packs are already on the phone, so the list can say rather than guess. */
+    suspend fun kept(): Set<String> =
+        models.getDownloadedModels(TranslateRemoteModel::class.java).await()
+            ?.map { it.language }?.toSet().orEmpty()
+
+    /** Fetched over wi-fi only: thirty megabytes is not something to spend someone's data on. */
+    suspend fun fetch(tag: String): Boolean {
+        val conditions = DownloadConditions.Builder().requireWifi().build()
+        return models.download(modelOf(tag), conditions).await() != null ||
+            kept().contains(tag)
+    }
+
+    suspend fun drop(tag: String): Boolean = models.deleteDownloadedModel(modelOf(tag)).await() != null
 
     fun deviceLanguage(): String = Locale.getDefault().language.ifBlank { "en" }
 
