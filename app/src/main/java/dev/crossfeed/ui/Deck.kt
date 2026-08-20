@@ -74,8 +74,13 @@ fun rememberDeck(): Deck? {
     }
 
     val track = state.current
+
+    // whatever is actually playing wins. our own engine holds on to its last track after it
+    // stops, so preferring it outright would freeze the card on a song that ended hours ago.
+    val ours = track != null && (state.playing || now == null || !now.playing)
+
     return when {
-        track != null -> Deck(
+        track != null && ours -> Deck(
             id = track.id,
             title = track.title,
             artist = track.artist,
