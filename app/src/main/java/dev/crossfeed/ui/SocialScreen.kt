@@ -409,7 +409,7 @@ fun SocialScreen() {
                     )
                 }
                 if (previewGrid) {
-                    val preview = posts.take(FEED_PREVIEW)
+                    val preview = posts.take(GRID_PREVIEW)
                     for (row in preview.chunked(3)) {
                         Row(
                             Modifier.fillMaxWidth().padding(bottom = Space.tight),
@@ -972,3 +972,6 @@ fun ago(millis: Long): String {
 }
 
 private const val FEED_PREVIEW = 4
+
+/** Tiles come three to a row, so four of them left an orphan under a full row. */
+private const val GRID_PREVIEW = 6
