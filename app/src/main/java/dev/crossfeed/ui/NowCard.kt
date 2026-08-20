@@ -43,6 +43,7 @@ fun NowCard() {
     val deck = rememberDeck()
     val live = deck?.controllable == true
 
+    var singing by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
     var held by remember { mutableFloatStateOf(0f) }
 
@@ -147,6 +148,16 @@ fun NowCard() {
                 ) { deck.toggle() }
                 IconAction(glyph = Glyph.NEXT, diameter = 40.dp) { deck.next() }
             }
+        }
+
+        if (deck.playing || live) {
+            Spacer(Modifier.height(Space.small))
+            GlassButton(
+                label = "sing along",
+                filled = true,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { singing = true },
+            )
         } else {
             Text(
                 where.removePrefix("on ") + " is not answering right now, so this is a reading " +
@@ -155,6 +166,10 @@ fun NowCard() {
                 color = glass.inkFaint,
             )
         }
+    }
+
+    if (singing) {
+        LyricsScreen(onClose = { singing = false })
     }
 }
 

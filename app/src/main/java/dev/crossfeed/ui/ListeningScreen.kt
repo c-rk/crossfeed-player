@@ -283,8 +283,6 @@ fun ListeningScreen() {
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        GlassButton(label = "sing along", filled = true, compact = true, onClick = { showLyrics = true })
-                        Spacer(Modifier.height(Space.tight))
                         GlassButton(
                             label = "credits",
                             compact = true,

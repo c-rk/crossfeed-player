@@ -66,9 +66,11 @@ object SourceFilter {
 
     /** A source whose word cannot be taken for it: every video there is, music or otherwise. */
     fun needsProof(context: Context, pkg: String): Boolean =
-        pkg !in musicApps && (pkg in videoApps || pkg in browsers(context))
+        pkg != context.packageName && pkg !in musicApps &&
+            (pkg in videoApps || pkg in browsers(context))
 
     fun allow(context: Context, pkg: String, metadata: MediaMetadata?): Boolean {
+        if (pkg == context.packageName) return true
         if (pkg in musicApps) return true
 
         if (needsProof(context, pkg)) {

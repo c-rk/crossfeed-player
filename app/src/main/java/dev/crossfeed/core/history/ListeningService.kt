@@ -62,7 +62,9 @@ class ListeningService : NotificationListenerService() {
     }
 
     private fun sync(controllers: List<MediaController>) {
-        val live = controllers.filter { it.packageName != packageName }
+        // our own session is a music session like any other, and skipping it was the only
+        // reason songs played here never reached the diary
+        val live = controllers
         val livePackages = live.map { it.packageName }.toSet()
 
         attached.keys.toList().filterNot { it in livePackages }.forEach { pkg ->
