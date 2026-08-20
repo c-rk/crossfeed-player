@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,18 +42,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Cache
+import dev.crossfeed.core.EntityKind
 import dev.crossfeed.core.LibraryItem
 import dev.crossfeed.core.Opener
+import dev.crossfeed.core.Platform
+import dev.crossfeed.core.PlaylistMeta
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.RecentEntry
 import dev.crossfeed.core.Resolved
 import dev.crossfeed.core.Resolver
+import dev.crossfeed.core.Route
+import dev.crossfeed.core.TrackMeta
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ResolveOverlay(url: String, shared: Boolean = false, onDone: () -> Unit) {
@@ -199,7 +209,7 @@ private fun Sheet(outcome: Resolved, onDone: () -> Unit) {
 
     Spacer(Modifier.height(Space.medium))
     Text(
-        text = if (outcome.routes.size > 1) "open where?" else "from ${outcome.source?.label ?: "link"}",
+        text = "open it, or copy the link for any of these",
         style = Type.caps,
         color = glass.inkMuted,
         modifier = Modifier.padding(bottom = Space.tight),
@@ -218,7 +228,14 @@ private fun Sheet(outcome: Resolved, onDone: () -> Unit) {
         Spacer(Modifier.height(Space.tight))
     }
 
-    for (route in outcome.routes) {
+    // a shared song is usually on its way to someone else, so every service is offered rather
+    // than only the ones this phone opens links in
+    val everywhere = Platform.entries.map { platform ->
+        outcome.routes.firstOrNull { it.platform == platform }
+            ?: Route(platform, platform.searchUrl(meta.query), false)
+    }
+
+    for (route in everywhere) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
                 PlatformRow(
@@ -233,5 +250,78 @@ private fun Sheet(outcome: Resolved, onDone: () -> Unit) {
         }
     }
 
+    if (meta.kind == EntityKind.PLAYLIST || meta.kind == EntityKind.ALBUM) {
+        PlaylistTracks(outcome.sourceUrl)
+    }
+
     Spacer(Modifier.height(Space.small))
+}
+
+/**
+ * A shared playlist is a list of songs, and each of them is shareable in its own right, so the
+ * running order is opened up rather than treated as one opaque link.
+ */
+@Composable
+private fun PlaylistTracks(url: String) {
+    val glass = LocalGlass.current
+    var tracks by remember(url) { mutableStateOf<List<TrackMeta>?>(null) }
+    var linksFor by remember { mutableStateOf<TrackMeta?>(null) }
+
+    LaunchedEffect(url) {
+        tracks = withContext(Dispatchers.IO) {
+            runCatching { PlaylistMeta.tracks(url) }.getOrDefault(emptyList())
+        }
+    }
+
+    val found = tracks
+    Spacer(Modifier.height(Space.small))
+    when {
+        found == null -> Text("reading the list…", style = Type.footnote, color = glass.inkMuted)
+        found.isEmpty() -> Text(
+            "could not read the songs in this one, but the links above still work",
+            style = Type.footnote,
+            color = glass.inkFaint,
+        )
+        else -> {
+            Text(
+                found.size.toString() + " songs · tap one for its links",
+                style = Type.caps,
+                color = glass.inkMuted,
+                modifier = Modifier.padding(bottom = Space.tight),
+            )
+            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                for (track in found) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { linksFor = track }
+                            .padding(vertical = Space.tight),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                track.title,
+                                style = Type.callout,
+                                color = glass.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                track.artist ?: "unknown artist",
+                                style = Type.footnote,
+                                color = glass.inkFaint,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        IconAction(glyph = Glyph.LINK, diameter = 30.dp) { linksFor = track }
+                    }
+                }
+            }
+        }
+    }
+
+    linksFor?.let { track ->
+        LinksSheet(title = track.title, artist = track.artist, onDismiss = { linksFor = null })
+    }
 }
