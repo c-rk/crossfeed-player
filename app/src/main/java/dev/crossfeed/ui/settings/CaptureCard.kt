@@ -47,3 +47,31 @@ fun CaptureCard() {
         )
     }
 }
+
+@Composable
+fun LyricsCard() {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    val prefs = remember { Prefs(context) }
+    var translate by remember { mutableStateOf(prefs.translateLyrics) }
+
+    GlassCard {
+        SectionHeader("sing along")
+        Text(
+            "translation happens on the phone. a language pack is downloaded the first time and " +
+                "works offline after that, and no lyric is ever sent anywhere.",
+            style = Type.footnote,
+            color = glass.inkMuted,
+            modifier = Modifier.padding(bottom = Space.tight),
+        )
+        ToggleRow(
+            title = "offer what it means",
+            subtitle = "puts a switch in sing along that shows each line translated underneath",
+            checked = translate,
+            onChange = {
+                translate = it
+                prefs.translateLyrics = it
+            },
+        )
+    }
+}

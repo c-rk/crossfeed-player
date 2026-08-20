@@ -36,7 +36,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.crossfeed.core.history.NowPlaying
+import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.lyrics.Lyrics
+import dev.crossfeed.core.lyrics.Meaning
 import dev.crossfeed.core.lyrics.LyricsSource
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Space
@@ -52,6 +54,10 @@ fun LyricsScreen(onClose: () -> Unit) {
     var lyrics by remember(playing?.key) { mutableStateOf<Lyrics?>(null) }
     var looking by remember(playing?.key) { mutableStateOf(true) }
     var romanised by remember { mutableStateOf(true) }
+    var meaning by remember { mutableStateOf(false) }
+    var meanings by remember(playing?.key) { mutableStateOf<List<String?>?>(null) }
+    var translating by remember { mutableStateOf(false) }
+    val offersMeaning = remember { Prefs(context).translateLyrics }
     var position by remember { mutableStateOf(0L) }
 
     LaunchedEffect(playing?.key) {
@@ -66,6 +72,19 @@ fun LyricsScreen(onClose: () -> Unit) {
             position = NowPlaying.current?.positionNow() ?: 0L
             delay(220)
         }
+    }
+
+    LaunchedEffect(meaning, lyrics, playing?.key) {
+        val words = lyrics
+        if (!meaning || words == null || words.lines.isEmpty()) return@LaunchedEffect
+        if (meanings != null) return@LaunchedEffect
+        translating = true
+        meanings = Meaning.forLines(
+            songKey = playing?.key.orEmpty(),
+            lines = words.lines.map { it.text },
+            target = Meaning.deviceLanguage(),
+        )
+        translating = false
     }
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -99,16 +118,28 @@ fun LyricsScreen(onClose: () -> Unit) {
                     words.instrumental -> Hint("this one is instrumental.")
                     words.empty -> Hint("no lyrics found for this one.")
                     else -> {
-                        if (words.lines.any { LyricsSource.romanisable(it.text) }) {
-                            Row(
-                                Modifier.padding(bottom = Space.small),
-                                horizontalArrangement = Arrangement.spacedBy(Space.tight),
-                            ) {
+                        Row(
+                            Modifier.padding(bottom = Space.small),
+                            horizontalArrangement = Arrangement.spacedBy(Space.tight),
+                        ) {
+                            if (words.lines.any { LyricsSource.romanisable(it.text) }) {
                                 Toggle("original", !romanised) { romanised = false }
                                 Toggle("romanised", romanised) { romanised = true }
                             }
+                            if (offersMeaning) {
+                                Toggle(
+                                    if (translating) "working it out…" else "what does it mean?",
+                                    meaning,
+                                ) { meaning = !meaning }
+                            }
                         }
-                        Words(words, position, romanised, Modifier.weight(1f))
+                        Words(
+                            words,
+                            position,
+                            romanised,
+                            if (meaning) meanings else null,
+                            Modifier.weight(1f),
+                        )
                         Text(
                             if (words.synced) "in time with what you are playing" else "not time synced",
                             style = Type.caps,
@@ -148,7 +179,13 @@ private fun Toggle(label: String, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Words(words: Lyrics, positionMs: Long, romanised: Boolean, modifier: Modifier = Modifier) {
+private fun Words(
+    words: Lyrics,
+    positionMs: Long,
+    romanised: Boolean,
+    meanings: List<String?>?,
+    modifier: Modifier = Modifier,
+) {
     val glass = LocalGlass.current
     val listState = rememberLazyListState()
     val active = words.indexAt(positionMs)
@@ -177,16 +214,27 @@ private fun Words(words: Lyrics, positionMs: Long, romanised: Boolean, modifier:
                 },
                 label = "line",
             )
-            Text(
-                text.ifBlank { "·" },
-                style = if (current) {
-                    Type.title.copy(fontSize = 30.sp, lineHeight = 37.sp)
-                } else {
-                    Type.headline
-                },
-                color = colour,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
-            )
+            val sense = meanings?.getOrNull(index)?.takeIf { it.isNotBlank() && it != text }
+            Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+                Text(
+                    text.ifBlank { "·" },
+                    style = if (current) {
+                        Type.title.copy(fontSize = 30.sp, lineHeight = 37.sp)
+                    } else {
+                        Type.headline
+                    },
+                    color = colour,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (sense != null) {
+                    Text(
+                        sense,
+                        style = Type.caps.copy(letterSpacing = 0.sp),
+                        color = if (current) glass.accent else glass.inkFaint,
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    )
+                }
+            }
         }
         item { Spacer(Modifier.height(320.dp)) }
     }

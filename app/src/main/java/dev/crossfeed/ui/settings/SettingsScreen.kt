@@ -89,6 +89,9 @@ fun SettingsScreen(nav: Nav) {
         CaptureCard()
 
         Spacer(Modifier.height(Space.medium))
+        LyricsCard()
+
+        Spacer(Modifier.height(Space.medium))
         SharingCard()
 
         Spacer(Modifier.height(Space.medium))
