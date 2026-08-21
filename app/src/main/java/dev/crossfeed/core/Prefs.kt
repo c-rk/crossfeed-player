@@ -43,6 +43,11 @@ class Prefs(context: Context) {
         get() = store.getBoolean(KEY_GENRES, false)
         set(value) = store.edit().putBoolean(KEY_GENRES, value).apply()
 
+    /** When the last notice the user waved away was posted. */
+    var noticeSeen: Long
+        get() = store.getLong(KEY_NOTICE, 0)
+        set(value) = store.edit().putLong(KEY_NOTICE, value).apply()
+
     var sharePlays: Boolean
         get() = store.getBoolean(KEY_SHARE_PLAYS, false)
         set(value) = store.edit().putBoolean(KEY_SHARE_PLAYS, value).apply()
@@ -82,6 +87,7 @@ class Prefs(context: Context) {
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_SHARE_PLAYS = "share_plays"
         private const val KEY_GENRES = "look_up_genres"
+        private const val KEY_NOTICE = "notice_seen"
         private const val KEY_BROWSER_MUSIC = "count_browser_music"
         private const val KEY_TRANSLATE = "translate_lyrics"
         private const val KEY_PAUSED_UNTIL = "sharing_paused_until"

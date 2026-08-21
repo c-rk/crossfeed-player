@@ -162,6 +162,9 @@ fun ListeningScreen() {
             .padding(horizontal = Space.large),
     ) {
         Spacer(Modifier.height(Space.medium))
+        UpdateBanner()
+
+        Spacer(Modifier.height(Space.small))
         Text("listening", style = Type.wordmark, color = glass.ink)
 
         Spacer(Modifier.height(Space.medium))
