@@ -35,6 +35,14 @@ class Prefs(context: Context) {
             store.edit().putString(KEY_BASE_URL, clean).apply()
         }
 
+    /**
+     * Whether crossfeed may ask the catalogue what genre a track is. Off by default: the question
+     * names the track, so it is a disclosure of the diary however small each one is.
+     */
+    var lookUpGenres: Boolean
+        get() = store.getBoolean(KEY_GENRES, false)
+        set(value) = store.edit().putBoolean(KEY_GENRES, value).apply()
+
     var sharePlays: Boolean
         get() = store.getBoolean(KEY_SHARE_PLAYS, false)
         set(value) = store.edit().putBoolean(KEY_SHARE_PLAYS, value).apply()
@@ -62,10 +70,6 @@ class Prefs(context: Context) {
         get() = store.getBoolean(KEY_TRANSLATE, true)
         set(value) = store.edit().putBoolean(KEY_TRANSLATE, value).apply()
 
-    var broadcast: Boolean
-        get() = store.getBoolean(KEY_BROADCAST, false)
-        set(value) = store.edit().putBoolean(KEY_BROADCAST, value).apply()
-
     val country: String
         get() = (Locale.getDefault().country.takeIf { it.length == 2 } ?: "US").lowercase()
 
@@ -77,9 +81,9 @@ class Prefs(context: Context) {
         private const val KEY_AUTO_OPEN = "auto_open"
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_SHARE_PLAYS = "share_plays"
+        private const val KEY_GENRES = "look_up_genres"
         private const val KEY_BROWSER_MUSIC = "count_browser_music"
         private const val KEY_TRANSLATE = "translate_lyrics"
         private const val KEY_PAUSED_UNTIL = "sharing_paused_until"
-        private const val KEY_BROADCAST = "broadcast"
     }
 }

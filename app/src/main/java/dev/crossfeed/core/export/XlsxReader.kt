@@ -15,17 +15,32 @@ object XlsxReader {
         return rows(body)
     }
 
+    /**
+     * A spreadsheet arrives from wherever the user found it, and a small file can unpack into a
+     * very large one, so the archive is read up to a ceiling rather than to its own claim.
+     */
     private fun unzip(input: InputStream): Map<String, ByteArray> {
         val parts = mutableMapOf<String, ByteArray>()
+        var total = 0L
         ZipInputStream(input).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (!entry.isDirectory) parts[entry.name] = zip.readBytes()
+                if (parts.size >= MAX_ENTRIES) break
+                if (!entry.isDirectory) {
+                    val bytes = zip.readBytes()
+                    total += bytes.size
+                    if (total > MAX_BYTES) throw IllegalArgumentException("that file is too large")
+                    parts[entry.name] = bytes
+                }
                 zip.closeEntry()
             }
         }
         return parts
     }
+
+    private const val MAX_BYTES = 64L * 1024 * 1024
+    private const val MAX_ENTRIES = 512
+    private const val MAX_COLUMN = 16_383
 
     private fun locate(parts: Map<String, ByteArray>, name: String): String? {
         val workbook = parts["xl/workbook.xml"]?.toString(Charsets.UTF_8) ?: return null
@@ -88,7 +103,7 @@ object XlsxReader {
             if (!char.isLetter()) break
             value = value * 26 + (char.uppercaseChar() - 'A' + 1)
         }
-        return (value - 1).coerceAtLeast(0)
+        return (value - 1).coerceIn(0, MAX_COLUMN)
     }
 
     private fun unescape(text: String) = text

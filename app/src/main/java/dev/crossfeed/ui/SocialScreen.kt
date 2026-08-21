@@ -62,7 +62,6 @@ import dev.crossfeed.core.net.Circle
 import dev.crossfeed.core.net.Notifier
 import dev.crossfeed.core.net.Person
 import dev.crossfeed.core.net.Post
-import dev.crossfeed.core.net.Presence
 import dev.crossfeed.core.net.SavedTrack
 import dev.crossfeed.core.net.Social
 import dev.crossfeed.core.net.Suspension
@@ -97,20 +96,14 @@ fun SocialScreen() {
     var note by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
-    var showNearby by remember { mutableStateOf(false) }
     var showAlerts by remember { mutableStateOf(false) }
     var showFeed by remember { mutableStateOf(false) }
     var previewGrid by rememberSaveable { mutableStateOf(true) }
     var sharePlays by remember { mutableStateOf(prefs.sharePlays) }
-    var broadcast by remember { mutableStateOf(prefs.broadcast) }
     var baseUrl by remember { mutableStateOf(prefs.baseUrl) }
     var invite by remember { mutableStateOf("") }
+    var removing by remember { mutableStateOf<Person?>(null) }
 
-    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        broadcast = granted
-        prefs.broadcast = granted
-        scope.launch { Presence.push(context) }
-    }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     fun react(post: Post, emoji: String?) {
@@ -143,10 +136,6 @@ fun SocialScreen() {
         runCatching { posts = Social.feed(context) }.onFailure { note = it.message }
         runCatching { circle = Social.circle(context) }
         runCatching { saves = Social.saved(context) }
-    }
-
-    LaunchedEffect(registered, broadcast) {
-        if (registered) Presence.push(context)
     }
 
     LaunchedEffect(registered) {
@@ -243,7 +232,7 @@ fun SocialScreen() {
                     modifier = Modifier.padding(bottom = Space.small),
                 )
                 Text(
-                    "the feed, nearby and sharing are paused, and nobody sees what you play. " +
+                    "the feed and sharing are paused, and nobody sees what you play. " +
                         "your listening history on this phone is untouched. the handle cannot be " +
                         "wiped while it is suspended.",
                     style = Type.footnote,
@@ -540,12 +529,7 @@ fun SocialScreen() {
                     )
                 }
                 for (person in circle.accepted) {
-                    PersonRow(person, "connected") {
-                        scope.launch {
-                            runCatching { Social.unfriend(context, person.id) }
-                            reload++
-                        }
-                    }
+                    PersonRow(person, "connected") { removing = person }
                 }
                 for (person in circle.outgoing) {
                     PersonRow(person, "waiting") {
@@ -559,17 +543,6 @@ fun SocialScreen() {
         }
 
         Spacer(Modifier.height(110.dp))
-    }
-
-    if (registered && !suspended) {
-        Box(Modifier.fillMaxSize()) {
-            NearbyButton(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = Space.large, bottom = 84.dp),
-                onClick = { showNearby = true },
-            )
-        }
     }
 
     if (showFeed) {
@@ -594,10 +567,49 @@ fun SocialScreen() {
         )
     }
 
-    if (showNearby) {
-        NearbyDialog(onDismiss = { showNearby = false }, onChanged = { reload++ })
+    removing?.let { person ->
+        ConfirmRemove(
+            handle = person.handle,
+            onCancel = { removing = null },
+            onConfirm = {
+                removing = null
+                scope.launch {
+                    runCatching { Social.unfriend(context, person.id) }
+                    note = "removed @${person.handle}"
+                    reload++
+                }
+            },
+        )
     }
 
+}
+
+/** Removing someone is quiet and immediate, so it is worth one question first. */
+@Composable
+private fun ConfirmRemove(handle: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    val glass = LocalGlass.current
+    androidx.compose.ui.window.Dialog(onDismissRequest = onCancel) {
+        GlassCard(strong = true) {
+            Text("remove @$handle?", style = Type.title, color = glass.ink)
+            Text(
+                "everything they played leaves your feed straight away, and everything you played " +
+                    "leaves theirs. reactions they have already left on your songs stay. neither " +
+                    "of you is told, and they can ask to connect again.",
+                style = Type.footnote,
+                color = glass.inkMuted,
+                modifier = Modifier.padding(top = 6.dp, bottom = Space.medium),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                GlassButton(label = "keep", modifier = Modifier.weight(1f), onClick = onCancel)
+                GlassButton(
+                    label = "remove",
+                    filled = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = onConfirm,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -874,31 +886,6 @@ fun UrlArt(url: String?, title: String, size: Dp, round: Boolean = false) {
     }
 }
 
-@Composable
-private fun NearbyButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val glass = LocalGlass.current
-    Box(
-        modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(Brush.linearGradient(glass.hot))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.size(26.dp)) {
-            val centre = Offset(size.width / 2, size.height / 2)
-            for (ring in 1..3) {
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.32f + 0.2f * (3 - ring)),
-                    radius = size.minDimension / 2 * ring / 3f,
-                    center = centre,
-                    style = Stroke(width = 2.2f),
-                )
-            }
-            drawCircle(Color.White, size.minDimension * 0.11f, centre)
-        }
-    }
-}
 
 @Composable
 private fun LiveRow(entries: List<dev.crossfeed.core.net.Live>, onPlay: (dev.crossfeed.core.net.Live) -> Unit) {

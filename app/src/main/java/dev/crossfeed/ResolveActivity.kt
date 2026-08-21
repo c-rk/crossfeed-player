@@ -46,9 +46,15 @@ class ResolveActivity : ComponentActivity() {
         overridePendingTransition(0, 0)
     }
 
+    /**
+     * Another app can start this activity with any url at all, and resolving one means fetching it.
+     * Only the services crossfeed actually knows how to read are followed.
+     */
     private fun urlFrom(intent: Intent?): String? {
         if (intent == null) return null
-        intent.data?.toString()?.let { return it }
-        return LinkParser.firstUrl(intent.getStringExtra(Intent.EXTRA_TEXT))
+        val candidate = intent.data?.toString()
+            ?: LinkParser.firstUrl(intent.getStringExtra(Intent.EXTRA_TEXT))
+            ?: return null
+        return candidate.takeIf { LinkParser.isKnown(it) }
     }
 }

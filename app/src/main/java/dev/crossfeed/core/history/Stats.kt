@@ -73,6 +73,7 @@ object Stats {
     }
 
     suspend fun enrichGenres(context: Context) = withContext(Dispatchers.IO) {
+        if (!Prefs(context).lookUpGenres) return@withContext
         val db = HistoryDb.get(context)
         val country = Prefs(context).country
         for ((title, artist) in db.needsGenre()) {

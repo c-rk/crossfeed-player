@@ -26,10 +26,28 @@ class PlaybackService : MediaSessionService() {
             .build()
     }
 
+    /**
+     * Anything that holds the session can read what is playing and drive it. A legacy controller
+     * used to be waved through, but that version is reported by any app connecting the old way,
+     * not only by the system, so the surfaces we actually need are named instead.
+     */
     private fun allowed(controller: MediaSession.ControllerInfo): Boolean =
         controller.packageName == packageName ||
             controller.uid == Process.SYSTEM_UID ||
-            controller.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+            controller.packageName in SYSTEM_SURFACES
+
+    private companion object {
+        /** The system players that legitimately show and control other apps' playback. */
+        val SYSTEM_SURFACES = setOf(
+            "com.android.systemui",
+            "com.google.android.projection.gearhead",
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.wearable.app",
+            "com.google.android.apps.wearable.companion",
+            "com.google.android.carassistant",
+            "com.google.android.tv",
+        )
+    }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) =
         if (allowed(controllerInfo)) session else null

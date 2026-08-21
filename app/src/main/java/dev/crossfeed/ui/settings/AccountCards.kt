@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import dev.crossfeed.BuildConfig
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.net.Account
-import dev.crossfeed.core.net.Presence
 import dev.crossfeed.core.net.Social
 import dev.crossfeed.ui.GlassButton
 import dev.crossfeed.ui.GlassCard
@@ -51,7 +50,6 @@ fun SharingCard() {
     val registered = remember { Account(context).exists }
 
     var sharePlays by remember { mutableStateOf(prefs.sharePlays) }
-    var broadcast by remember { mutableStateOf(prefs.broadcast) }
     var pausedUntil by remember { mutableLongStateOf(prefs.pausedUntil) }
     var span by remember { mutableIntStateOf(2) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -63,14 +61,6 @@ fun SharingCard() {
             delay(1_000)
         }
         now = System.currentTimeMillis()
-    }
-
-    val askLocation = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        broadcast = granted
-        prefs.broadcast = granted
-        if (granted) scope.launch { Presence.push(context) }
     }
 
     GlassCard {
@@ -158,20 +148,6 @@ fun SharingCard() {
             Spacer(Modifier.height(Space.small))
         }
 
-        ToggleRow(
-            title = "let people find me nearby",
-            subtitle = "rounds your position to ~110 m; others only ever see a distance band",
-            checked = broadcast && registered,
-            onChange = { value ->
-                if (value && !Presence.allowed(context)) {
-                    askLocation.launch(Presence.PERMISSION)
-                } else {
-                    broadcast = value
-                    prefs.broadcast = value
-                    scope.launch { Presence.push(context) }
-                }
-            },
-        )
     }
 }
 

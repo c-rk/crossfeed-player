@@ -48,8 +48,8 @@ fun CaptureCard() {
         )
         ToggleRow(
             title = "count music played in a browser",
-            subtitle = "a video only counts once its title matches a real record, so lectures and " +
-                "clips are left out. youtube in the app is included too",
+            subtitle = "a video only counts once it names an artist the catalogue lists, so " +
+                "lectures and clips are left out. checking that sends the title to apple",
             checked = browserMusic,
             onChange = {
                 browserMusic = it
@@ -164,5 +164,45 @@ fun LanguagePacksCard() {
             }
         }
         Spacer(Modifier.height(Space.tight))
+    }
+}
+
+/**
+ * The one place that says what is asked of anyone else. Every question here names a track, so each
+ * is a small disclosure of the diary and each waits to be turned on.
+ */
+@Composable
+fun DisclosureCard() {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    val prefs = remember { Prefs(context) }
+    var genres by remember { mutableStateOf(prefs.lookUpGenres) }
+
+    GlassCard {
+        SectionHeader("what leaves the phone")
+        Text(
+            "your history is never uploaded. some features do ask other people questions, and a " +
+                "question names the track it is about, so they are listed here rather than buried.",
+            style = Type.footnote,
+            color = glass.inkMuted,
+            modifier = Modifier.padding(bottom = Space.tight),
+        )
+        ToggleRow(
+            title = "look up genres",
+            subtitle = "asks apple what genre a track is, so the genres chart can fill in. it sends " +
+                "the title and artist of tracks you have played",
+            checked = genres,
+            onChange = {
+                genres = it
+                prefs.lookUpGenres = it
+            },
+        )
+        Text(
+            "lyrics come from lrclib by title and artist. translation runs here and sends nothing. " +
+                "artwork and links are looked up only for what you search for or share.",
+            style = Type.footnote,
+            color = glass.inkFaint,
+            modifier = Modifier.padding(top = Space.small),
+        )
     }
 }

@@ -27,7 +27,6 @@ object Permissions {
     const val AUDIO = "audio"
     const val NOTIFY = "notify"
     const val CONTROL = "control"
-    const val NEARBY = "nearby"
     const val LINKS = "links"
 
     val audio: String
@@ -73,15 +72,6 @@ object Permissions {
                 ),
             )
         }
-        add(
-            Permit(
-                id = NEARBY,
-                label = "location",
-                unlocks = "letting people nearby find you, as a distance band and nothing more",
-                ask = Ask.Runtime(Manifest.permission.ACCESS_COARSE_LOCATION),
-                granted = held(context, Manifest.permission.ACCESS_COARSE_LOCATION),
-            ),
-        )
         add(
             Permit(
                 id = LINKS,

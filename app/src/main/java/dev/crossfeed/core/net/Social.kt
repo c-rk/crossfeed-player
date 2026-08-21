@@ -63,14 +63,6 @@ data class Person(val id: String, val handle: String, val display: String)
 
 data class Circle(val accepted: List<Person>, val incoming: List<Person>, val outgoing: List<Person>)
 
-data class Neighbour(
-    val id: String,
-    val handle: String,
-    val metres: Int,
-    val link: String,
-    val title: String?,
-    val artist: String?,
-)
 
 data class SavedTrack(val title: String, val artist: String?, val art: String?)
 
@@ -230,18 +222,6 @@ object Social {
         Unit
     }
 
-    suspend fun nearby(context: Context): List<Neighbour> = withContext(Dispatchers.IO) {
-        Api.get(context, "/v1/nearby").optJSONArray("items").map {
-            Neighbour(
-                id = it.optString("id"),
-                handle = it.optString("handle"),
-                metres = it.optInt("metres"),
-                link = it.optString("link"),
-                title = it.stringOrNull("title"),
-                artist = it.stringOrNull("artist"),
-            )
-        }
-    }
 
     suspend fun forget(context: Context) = withContext(Dispatchers.IO) {
         Api.post(context, "/v1/me/forget")
