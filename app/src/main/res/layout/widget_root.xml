@@ -102,7 +102,7 @@
         android:id="@+id/flip"
         android:layout_width="44dp"
         android:layout_height="44dp"
-        android:layout_gravity="center_vertical|end"
+        android:layout_gravity="bottom|end"
         android:background="@drawable/widget_chip"
         android:padding="11dp"
         android:scaleType="fitCenter"
