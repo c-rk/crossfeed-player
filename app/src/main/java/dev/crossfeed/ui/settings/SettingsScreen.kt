@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -37,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.crossfeed.core.Ask
+import dev.crossfeed.core.Opener
 import dev.crossfeed.core.Permissions
 import dev.crossfeed.core.Permit
 import dev.crossfeed.ui.Dest
@@ -53,6 +55,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(nav: Nav) {
     val glass = LocalGlass.current
+    val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     var reads by remember { mutableIntStateOf(0) }
 
@@ -110,6 +113,28 @@ fun SettingsScreen(nav: Nav) {
         AccountCard()
 
         ServerCard()
+
+        Spacer(Modifier.height(Space.large))
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "privacy",
+                style = Type.caps,
+                color = glass.accent,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable { Opener.openWeb(context, PRIVACY) }
+                    .padding(horizontal = Space.small, vertical = Space.tight),
+            )
+            Text(
+                "developed with ♪ by Rama",
+                style = Type.caps,
+                color = glass.inkFaint,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
 
         Spacer(Modifier.height(110.dp))
     }
@@ -238,3 +263,5 @@ private fun Playing() {
 
 private fun rationale(context: android.content.Context, permission: String): Boolean =
     (context as? Activity)?.shouldShowRequestPermissionRationale(permission) ?: false
+
+private const val PRIVACY = "https://crossfeed-player.pages.dev/privacy"
