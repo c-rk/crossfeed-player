@@ -232,7 +232,7 @@ private fun Sheet(outcome: Resolved, onDone: () -> Unit) {
     // than only the ones this phone opens links in
     val everywhere = Platform.entries.map { platform ->
         outcome.routes.firstOrNull { it.platform == platform }
-            ?: Route(platform, platform.searchUrl(meta.query), false)
+            ?: Route(platform, platform.searchUrl(meta.query, Prefs(context).country), false)
     }
 
     for (route in everywhere) {

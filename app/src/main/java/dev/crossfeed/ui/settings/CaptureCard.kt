@@ -2,6 +2,9 @@ package dev.crossfeed.ui.settings
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,6 +25,7 @@ import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.history.VideoTitles
 import dev.crossfeed.core.lyrics.Meaning
 import dev.crossfeed.ui.GlassCard
+import dev.crossfeed.ui.GlassChip
 import dev.crossfeed.ui.GlassButton
 import dev.crossfeed.ui.SectionHeader
 import dev.crossfeed.ui.ToggleRow
@@ -202,6 +206,69 @@ fun DisclosureCard() {
                 "artwork and links are looked up only for what you search for or share.",
             style = Type.footnote,
             color = glass.inkFaint,
+            modifier = Modifier.padding(top = Space.small),
+        )
+    }
+}
+
+/** Common storefronts, plus whatever the phone says. Two letters is all apple wants. */
+private val STORES = listOf(
+    "in" to "india",
+    "us" to "united states",
+    "gb" to "united kingdom",
+    "ca" to "canada",
+    "au" to "australia",
+    "de" to "germany",
+    "fr" to "france",
+    "jp" to "japan",
+    "sg" to "singapore",
+    "ae" to "emirates",
+)
+
+@Composable
+fun StoreCard() {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    val prefs = remember { Prefs(context) }
+    var chosen by remember { mutableStateOf(prefs.storeCountry) }
+
+    GlassCard {
+        SectionHeader("music store")
+        Text(
+            "which catalogue to search when crossfeed looks a song up or builds a link. a release " +
+                "in one country is often missing from another, so this should match wherever you " +
+                "actually subscribe.",
+            style = Type.footnote,
+            color = glass.inkMuted,
+            modifier = Modifier.padding(bottom = Space.small),
+        )
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(Space.tight),
+        ) {
+            GlassChip(
+                label = "my region",
+                selected = chosen == null,
+                onClick = {
+                    chosen = null
+                    prefs.storeCountry = null
+                },
+            )
+            for ((code, name) in STORES) {
+                GlassChip(
+                    label = name,
+                    selected = chosen == code,
+                    onClick = {
+                        chosen = code
+                        prefs.storeCountry = code
+                    },
+                )
+            }
+        }
+        Text(
+            "searching " + (chosen ?: prefs.country).uppercase(),
+            style = Type.caps,
+            color = glass.accent,
             modifier = Modifier.padding(top = Space.small),
         )
     }

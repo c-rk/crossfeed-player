@@ -66,6 +66,8 @@ class PlayCapture(private val context: Context) {
             proof = if (unproven) Proof.PENDING else Proof.NONE,
         )
         sessions[pkg] = session
+        // the sleeve is wanted twenty seconds from now, so the asking starts at once
+        Publisher.warmArt(context, title, artist)
         if (unproven) verify(pkg, session, title, artist)
         applyState(pkg, state)
     }

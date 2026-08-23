@@ -30,7 +30,7 @@ object Router {
                     return@withContext PlayRoute(null, target, it.url, true)
                 }
             }
-            PlayRoute(null, target, target.searchUrl(meta.query), false)
+            PlayRoute(null, target, target.searchUrl(meta.query, prefs.country), false)
         }
 
     suspend fun play(context: Context, title: String, artist: String?) {

@@ -92,6 +92,9 @@ fun SettingsScreen(nav: Nav) {
         DisclosureCard()
 
         Spacer(Modifier.height(Space.medium))
+        StoreCard()
+
+        Spacer(Modifier.height(Space.medium))
         LyricsCard()
 
         Spacer(Modifier.height(Space.medium))

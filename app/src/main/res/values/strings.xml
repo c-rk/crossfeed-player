@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Crossfeed Player</string>
     <string name="open_with_crossfeed">Open with Crossfeed</string>
+    <string name="widget_description">Your week, and who is listening now</string>
 </resources>

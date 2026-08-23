@@ -79,8 +79,8 @@ object Resolver {
         source == target -> Route(target, url, true)
         target == Platform.APPLE_MUSIC -> AppleCatalog.find(meta, country)
             ?.let { Route(target, it.url, true) }
-            ?: Route(target, target.searchUrl(meta.query), false)
+            ?: Route(target, target.searchUrl(meta.query, country), false)
 
-        else -> Route(target, target.searchUrl(meta.query), false)
+        else -> Route(target, target.searchUrl(meta.query, country), false)
     }
 }

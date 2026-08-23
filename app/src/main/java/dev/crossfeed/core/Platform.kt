@@ -14,10 +14,15 @@ enum class Platform(
     TIDAL("tidal", "tidal", "com.aspiro.tidal", "tidal"),
     DEEZER("deezer", "deezer", "deezer.android.app", "deezer");
 
-    fun searchUrl(query: String): String {
+    /**
+     * Apple keeps a separate catalogue per country, and a release in one is often missing from
+     * another, so a search sent to the wrong storefront comes back empty for music the listener
+     * can plainly see in their own app.
+     */
+    fun searchUrl(query: String, country: String = "us"): String {
         val q = URLEncoder.encode(query, "UTF-8")
         return when (this) {
-            APPLE_MUSIC -> "https://music.apple.com/us/search?term=$q"
+            APPLE_MUSIC -> "https://music.apple.com/$country/search?term=$q"
             SPOTIFY -> "https://open.spotify.com/search/$q"
             YOUTUBE_MUSIC -> "https://music.youtube.com/search?q=$q"
             TIDAL -> "https://tidal.com/search?q=$q"

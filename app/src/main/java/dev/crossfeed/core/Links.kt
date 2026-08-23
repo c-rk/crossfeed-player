@@ -24,9 +24,9 @@ object Links {
                 if (platform == Platform.APPLE_MUSIC) {
                     AppleCatalog.find(meta, country)
                         ?.let { ServiceLink(platform, it.url, true) }
-                        ?: ServiceLink(platform, platform.searchUrl(meta.query), false)
+                        ?: ServiceLink(platform, platform.searchUrl(meta.query, country), false)
                 } else {
-                    ServiceLink(platform, platform.searchUrl(meta.query), false)
+                    ServiceLink(platform, platform.searchUrl(meta.query, country), false)
                 }
             }
         }
