@@ -28,7 +28,7 @@ android {
         // the translation runtime is a 17 mb native library per architecture, and two of the four
         // only exist for emulators. phones are arm, so only arm is shipped
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
-        versionName = "0.5.1"
+        versionName = "0.5.2"
     }
 
     signingConfigs {

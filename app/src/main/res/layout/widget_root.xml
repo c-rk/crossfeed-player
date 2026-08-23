@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_page"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:id="@+id/page_stats"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="this week"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:fontFamily="@font/permanent_marker" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/time" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:textColor="#FFFFFFFF"
+                    android:textSize="24sp" android:maxLines="1" android:includeFontPadding="false"
+                    android:fontFamily="@font/caveat_variable" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="time" android:textColor="#8CFFFFFF" android:textSize="10sp"
+                    android:maxLines="1" android:fontFamily="@font/geist_variable" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/plays" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:textColor="#FFFFFFFF"
+                    android:textSize="24sp" android:maxLines="1" android:includeFontPadding="false"
+                    android:fontFamily="@font/caveat_variable" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="plays" android:textColor="#8CFFFFFF" android:textSize="10sp"
+                    android:maxLines="1" android:fontFamily="@font/geist_variable" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/artists" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:textColor="#FFFFFFFF"
+                    android:textSize="24sp" android:maxLines="1" android:includeFontPadding="false"
+                    android:fontFamily="@font/caveat_variable" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="artists" android:textColor="#8CFFFFFF" android:textSize="10sp"
+                    android:maxLines="1" android:fontFamily="@font/geist_variable" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/page_live"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="listening now"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:fontFamily="@font/permanent_marker" />
+
+        <TextView android:id="@+id/row1" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="7dp" android:maxLines="1"
+            android:ellipsize="end" android:textColor="#FFFFFFFF" android:textSize="12sp"
+            android:fontFamily="@font/geist_variable" />
+
+        <TextView android:id="@+id/row2" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:maxLines="1"
+            android:ellipsize="end" android:textColor="#D9FFFFFF" android:textSize="12sp"
+            android:fontFamily="@font/geist_variable" />
+
+        <TextView android:id="@+id/row3" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:maxLines="1"
+            android:ellipsize="end" android:textColor="#D9FFFFFF" android:textSize="12sp"
+            android:fontFamily="@font/geist_variable" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/flip"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="center_vertical|end"
+        android:background="@drawable/widget_chip"
+        android:padding="11dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_flip" />
+</FrameLayout>

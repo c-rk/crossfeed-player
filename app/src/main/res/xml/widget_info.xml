@@ -7,5 +7,5 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/widget_stack"
+    android:initialLayout="@layout/widget_root"
     android:description="@string/widget_description" />
