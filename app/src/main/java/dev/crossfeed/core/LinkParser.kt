@@ -12,11 +12,6 @@ object LinkParser {
         "geo.music.apple.com" to Platform.APPLE_MUSIC,
         "itunes.apple.com" to Platform.APPLE_MUSIC,
         "music.youtube.com" to Platform.YOUTUBE_MUSIC,
-        "tidal.com" to Platform.TIDAL,
-        "listen.tidal.com" to Platform.TIDAL,
-        "deezer.com" to Platform.DEEZER,
-        "www.deezer.com" to Platform.DEEZER,
-        "dzr.page.link" to Platform.DEEZER,
     )
 
     private val universalHosts = setOf("song.link", "album.link", "odesli.co", "pods.link", "crossfeed.live")
