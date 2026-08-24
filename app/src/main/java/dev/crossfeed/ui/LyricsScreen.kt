@@ -53,11 +53,10 @@ fun LyricsScreen(onClose: () -> Unit) {
 
     var lyrics by remember(playing?.key) { mutableStateOf<Lyrics?>(null) }
     var looking by remember(playing?.key) { mutableStateOf(true) }
-    var romanised by remember { mutableStateOf(true) }
+    var romanised by remember { mutableStateOf(false) }
     var meaning by remember { mutableStateOf(false) }
     var meanings by remember(playing?.key) { mutableStateOf<List<String?>?>(null) }
     var translating by remember { mutableStateOf(false) }
-    val offersMeaning = remember { Prefs(context).translateLyrics }
     var position by remember { mutableStateOf(0L) }
 
     LaunchedEffect(playing?.key) {
@@ -126,12 +125,10 @@ fun LyricsScreen(onClose: () -> Unit) {
                                 Toggle("original", !romanised) { romanised = false }
                                 Toggle("romanised", romanised) { romanised = true }
                             }
-                            if (offersMeaning) {
-                                Toggle(
-                                    if (translating) "working it out…" else "what does it mean?",
-                                    meaning,
-                                ) { meaning = !meaning }
-                            }
+                            Toggle(
+                                if (translating) "working it out…" else "what does it mean?",
+                                meaning,
+                            ) { meaning = !meaning }
                         }
                         Words(
                             words,
