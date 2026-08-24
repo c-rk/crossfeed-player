@@ -2,6 +2,9 @@ package dev.crossfeed.core.lyrics
 
 import android.util.Log
 import com.google.android.gms.tasks.Task
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.nl.languageid.LanguageIdentification
@@ -25,7 +28,17 @@ object Meaning {
     private val done = HashMap<String, List<String?>>()
 
     /** Null when there is nothing worth showing: same language, unsupported, or no model. */
+    /**
+     * Why there is nothing to show, when there is nothing to show. Every failure here used to be a
+     * silent null, so tapping the switch simply did nothing and there was no way to tell whether
+     * the language was unsupported, the pack had not arrived, or the song was already in your own
+     * language.
+     */
+    var problem by mutableStateOf<String?>(null)
+        private set
+
     suspend fun forLines(songKey: String, lines: List<String>, target: String): List<String?>? {
+        problem = null
         val to = TranslateLanguage.fromLanguageTag(target) ?: TranslateLanguage.ENGLISH
         val cacheKey = "$songKey|$to"
         done[cacheKey]?.let { return it }
@@ -33,27 +46,51 @@ object Meaning {
         val sample = lines.filter { it.isNotBlank() }.take(24).joinToString("\n")
         if (sample.isBlank()) return null
 
-        val detected = runCatching { identify(sample) }.getOrNull() ?: return null
-        val from = TranslateLanguage.fromLanguageTag(detected) ?: return null
-        if (from == to) return null
+        val detected = runCatching { identify(sample) }.getOrNull()
+        if (detected == null) {
+            problem = "could not tell what language this is"
+            return null
+        }
+        val from = TranslateLanguage.fromLanguageTag(detected)
+        if (from == null) {
+            problem = "there is no translation for " + nameOf(detected)
+            return null
+        }
+        if (from == to) {
+            problem = "already in your language"
+            return null
+        }
 
         val translator = Translation.getClient(
             TranslatorOptions.Builder().setSourceLanguage(from).setTargetLanguage(to).build(),
         )
         return try {
-            translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
+            // a failed download used to look exactly like a successful one, so every line came back
+            // empty and that emptiness was then remembered for good
+            if (!translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).ok()) {
+                problem = "could not fetch the " + nameOf(detected) + " pack"
+                return null
+            }
             val out = lines.map { line ->
                 if (line.isBlank()) null else runCatching { translator.translate(line).await() }.getOrNull()
+            }
+            if (out.none { !it.isNullOrBlank() }) {
+                problem = "could not translate this one"
+                return null
             }
             done[cacheKey] = out
             out
         } catch (error: Exception) {
             Log.w("Meaning", "could not translate", error)
+            problem = "could not translate this one"
             null
         } finally {
             translator.close()
         }
     }
+
+    private fun nameOf(tag: String): String =
+        Locale(tag).displayLanguage.lowercase().ifBlank { tag }
 
     /** The whole song decides the language, because a single line is too little to go on. */
     private suspend fun identify(sample: String): String? {
@@ -114,5 +151,12 @@ object Meaning {
         addOnSuccessListener { slot.resume(it) }
         addOnFailureListener { slot.resume(null) }
         addOnCanceledListener { slot.resume(null) }
+    }
+
+    /** For tasks that carry no value: null means nothing, so completion is asked about instead. */
+    private suspend fun Task<Void>.ok(): Boolean = suspendCancellableCoroutine { slot ->
+        addOnSuccessListener { slot.resume(true) }
+        addOnFailureListener { slot.resume(false) }
+        addOnCanceledListener { slot.resume(false) }
     }
 }

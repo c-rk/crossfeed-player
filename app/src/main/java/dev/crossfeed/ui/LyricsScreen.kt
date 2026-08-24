@@ -137,6 +137,18 @@ fun LyricsScreen(onClose: () -> Unit) {
                             if (meaning) meanings else null,
                             Modifier.weight(1f),
                         )
+                        // silence used to be the only answer when nothing could be translated
+                        if (meaning && !translating && meanings == null) {
+                            Meaning.problem?.let {
+                                Text(
+                                    it,
+                                    style = Type.footnote,
+                                    color = glass.warning,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
                         Text(
                             if (words.synced) "in time with what you are playing" else "not time synced",
                             style = Type.caps,
