@@ -44,6 +44,16 @@ class Prefs(context: Context) {
         set(value) = store.edit().putBoolean(KEY_GENRES, value).apply()
 
     /** When the last notice the user waved away was posted. */
+    /** When github was last asked whether there is a newer version. */
+    var updateCheckedAt: Long
+        get() = store.getLong(KEY_CHECKED, 0)
+        set(value) = store.edit().putLong(KEY_CHECKED, value).apply()
+
+    /** A version the listener put aside, so it is not offered again until the next one. */
+    var versionSeen: String?
+        get() = store.getString(KEY_VERSION_SEEN, null)
+        set(value) = store.edit().putString(KEY_VERSION_SEEN, value).apply()
+
     var noticeSeen: Long
         get() = store.getLong(KEY_NOTICE, 0)
         set(value) = store.edit().putLong(KEY_NOTICE, value).apply()
@@ -94,6 +104,8 @@ class Prefs(context: Context) {
         private const val KEY_SHARE_PLAYS = "share_plays"
         private const val KEY_GENRES = "look_up_genres"
         private const val KEY_NOTICE = "notice_seen"
+        private const val KEY_CHECKED = "update_checked_at"
+        private const val KEY_VERSION_SEEN = "version_seen"
         private const val KEY_STORE = "store_country"
         private const val KEY_BROWSER_MUSIC = "count_browser_music"
         private const val KEY_PAUSED_UNTIL = "sharing_paused_until"

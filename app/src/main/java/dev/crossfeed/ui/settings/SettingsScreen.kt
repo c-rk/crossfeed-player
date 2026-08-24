@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.crossfeed.BuildConfig
 import dev.crossfeed.core.Ask
 import dev.crossfeed.core.Opener
 import dev.crossfeed.core.Permissions
@@ -127,6 +128,12 @@ fun SettingsScreen(nav: Nav) {
                     .clip(RoundedCornerShape(50))
                     .clickable { Opener.openWeb(context, PRIVACY) }
                     .padding(horizontal = Space.small, vertical = Space.tight),
+            )
+            Text(
+                "version " + BuildConfig.VERSION_NAME,
+                style = Type.caps,
+                color = glass.inkFaint,
+                modifier = Modifier.padding(top = 2.dp),
             )
             Text(
                 "developed with ♪ by Rama",
