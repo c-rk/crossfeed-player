@@ -3,18 +3,21 @@ package dev.crossfeed.core.catalog
 import android.content.Context
 import dev.crossfeed.core.AppleCatalog
 import dev.crossfeed.core.Matching
+import dev.crossfeed.core.Platform
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.TrackMeta
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.util.Locale
 
 /**
- * One place to ask what a song is and what its sleeve looks like.
+ * One place to ask what a song is, what its sleeve looks like, and where it can be heard.
  *
  * Everything used to go to apple's search, in one storefront, and stop there. That is a single
- * point of failure for two features that matter: a play cannot reach the feed with artwork if the
- * one catalogue asked has never heard of it, and a video in a browser cannot be told apart from a
- * lecture without something to check it against. A release missing from one shop is often sitting
- * in another, so the shops are asked in turn until one of them knows.
+ * point of failure for four features at once: a play cannot reach the feed with artwork if the one
+ * catalogue asked has never heard of it, a video in a browser cannot be told apart from a lecture
+ * without something to check it against, a search only finds what one shop stocks, and a link can
+ * only ever be precise for the one service that answers questions.
  *
  * Order is deliberate. The listener's own storefront first, since that is where their subscription
  * is and where a link would take them. Then their region, then the largest shop, then a catalogue
@@ -29,12 +32,21 @@ object Catalog {
         val durationMs: Int? = null,
         val artwork: String? = null,
         val genre: String? = null,
+        /** Where this record lives, when the catalogue that answered has a page for it. */
+        val url: String? = null,
+        /** Which service that page belongs to, so a row can carry the right icon. */
+        val platform: Platform? = null,
+        /** Which catalogue answered. */
         val source: String,
         val score: Double = 1.0,
     )
 
+    /** Where to send someone for a song, and whether it is the song or only a search for it. */
+    data class Address(val url: String, val exact: Boolean)
+
     private val found = HashMap<String, Record?>()
     private val artists = HashMap<String, Boolean>()
+    private val links = HashMap<String, String?>()
 
     /** Anything under this is not the song, whoever answered. */
     private const val FLOOR = 0.55
@@ -52,23 +64,78 @@ object Catalog {
         minScore: Double = FLOOR,
     ): Record? {
         if (title.isBlank()) return null
+        return look(context, TrackMeta(title = title, artist = artist, durationMs = durationMs), minScore)
+    }
+
+    fun look(context: Context, meta: TrackMeta, minScore: Double = FLOOR): Record? {
+        if (meta.title.isBlank()) return null
         val shops = storefronts(context)
-        val key = listOf(title, artist.orEmpty(), shops.first(), minScore.toString())
+        val key = listOf(meta.title, meta.artist.orEmpty(), meta.kind.name, shops.first(), minScore.toString())
             .joinToString("|").lowercase()
         if (found.containsKey(key)) return found[key]
         if (found.size > LIMIT) found.clear()
 
-        val meta = TrackMeta(title = title, artist = artist, durationMs = durationMs)
-        val query = meta.query
         val record = sequence {
             for (shop in shops) yield { apple(meta, shop) }
-            yield { best(Deezer.search(query), meta) }
-            yield { CoverArt.find(title, artist, durationMs)?.let { rate(it, meta) } }
+            yield { Deezer.find(meta) }
+            yield { CoverArt.find(meta.title, meta.artist, meta.durationMs)?.let { rate(it, meta) } }
         }.mapNotNull { runCatching { it() }.getOrNull() }
             .firstOrNull { it.score >= minScore }
 
         found[key] = record
         return record
+    }
+
+    /**
+     * Everything the shops have for a query, apple and deezer together, with the same record from
+     * both folded into one row. Deezer is asked at the same time rather than afterwards, so the
+     * second opinion costs nothing the listener can feel.
+     */
+    suspend fun search(context: Context, query: String, limit: Int = 25): List<Record> {
+        if (query.isBlank()) return emptyList()
+        val shop = storefronts(context).first()
+        return coroutineScope {
+            val apple = async {
+                runCatching { AppleCatalog.search(query, shop, limit) }.getOrDefault(emptyList())
+                    .map { it.toRecord(shop) }
+            }
+            val deezer = async {
+                runCatching { Deezer.search(query, limit) }.getOrDefault(emptyList())
+            }
+            fold(apple.await(), deezer.await())
+        }
+    }
+
+    /**
+     * A precise address for a song on a service, where the service can be asked without a key.
+     *
+     * Apple and deezer both answer. Spotify, tidal and youtube music each want an account and a
+     * registered application before they will say anything, which is a price this app does not
+     * pay, so they get a search that lands on the song and say so plainly.
+     */
+    fun exact(context: Context, platform: Platform, meta: TrackMeta): String? {
+        val key = listOf(platform.id, meta.title, meta.artist.orEmpty(), meta.kind.name)
+            .joinToString("|").lowercase()
+        if (links.containsKey(key)) return links[key]
+        if (links.size > LIMIT) links.clear()
+
+        val url = when (platform) {
+            Platform.APPLE_MUSIC -> storefronts(context).firstNotNullOfOrNull { shop ->
+                runCatching { AppleCatalog.find(meta, shop)?.url }.getOrNull()
+            }
+
+            Platform.DEEZER -> runCatching { Deezer.find(meta)?.url }.getOrNull()
+
+            else -> null
+        }
+        links[key] = url
+        return url
+    }
+
+    /** The song itself where that can be had, and a search that lands on it where it cannot. */
+    fun address(context: Context, platform: Platform, meta: TrackMeta): Address {
+        exact(context, platform, meta)?.let { return Address(it, true) }
+        return Address(platform.searchUrl(meta.query, Prefs(context).country), false)
     }
 
     /**
@@ -112,24 +179,37 @@ object Catalog {
     fun forget() {
         found.clear()
         artists.clear()
+        links.clear()
     }
 
-    private fun apple(meta: TrackMeta, shop: String): Record? =
-        AppleCatalog.find(meta, shop)?.let {
-            Record(
-                title = it.title,
-                artist = it.artist,
-                album = it.album,
-                durationMs = it.durationMs,
-                artwork = it.artwork,
-                genre = it.genre,
-                source = "apple:$shop",
-                score = it.score,
-            )
+    /** The same song from two shops is one song, and the one with an apple link goes first. */
+    private fun fold(apple: List<Record>, deezer: List<Record>): List<Record> {
+        val out = apple.toMutableList()
+        val seen = apple.map { mark(it) }.toMutableSet()
+        for (record in deezer) {
+            if (seen.add(mark(record))) out.add(record)
         }
+        return out
+    }
 
-    private fun best(records: List<Record>, meta: TrackMeta): Record? =
-        records.map { rate(it, meta) }.maxByOrNull { it.score }
+    private fun mark(record: Record): String =
+        Matching.norm(record.title) + "|" + Matching.norm(record.artist)
+
+    private fun apple(meta: TrackMeta, shop: String): Record? =
+        AppleCatalog.find(meta, shop)?.toRecord(shop)
+
+    private fun AppleCatalog.Hit.toRecord(shop: String) = Record(
+        title = title,
+        artist = artist,
+        album = album,
+        durationMs = durationMs,
+        artwork = artwork,
+        genre = genre,
+        url = url,
+        platform = Platform.APPLE_MUSIC,
+        source = "apple:$shop",
+        score = score,
+    )
 
     private fun rate(record: Record, meta: TrackMeta): Record = record.copy(
         score = Matching.score(

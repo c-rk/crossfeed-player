@@ -14,6 +14,7 @@ object SourceMeta {
         Platform.SPOTIFY -> spotify(url)
         Platform.APPLE_MUSIC -> apple(url)
         Platform.YOUTUBE_MUSIC -> generic(url) ?: youtube(url)
+        Platform.DEEZER -> deezer(url)
         else -> generic(url)
     } ?: generic(url)
 
@@ -90,6 +91,44 @@ object SourceMeta {
             kind = kind,
         )
     }
+
+    /**
+     * Deezer will simply say what a link is, so the page never has to be scraped for it. Nothing
+     * is lost when it declines: the generic reader still has the page to fall back on.
+     */
+    private fun deezer(url: String): TrackMeta? {
+        val kind = kindOf(url)
+        val id = Uri.parse(url).pathSegments?.lastOrNull()?.takeIf { part -> part.all { it.isDigit() } }
+            ?: return null
+        val path = when (kind) {
+            EntityKind.ALBUM -> "album"
+            EntityKind.PLAYLIST -> "playlist"
+            EntityKind.ARTIST -> "artist"
+            else -> "track"
+        }
+        val body = Http.get("https://api.deezer.com/$path/$id", accept = "application/json")?.body
+            ?: return null
+        val root = Json.parse(body) ?: return null
+        if (root.has("error")) return null
+
+        val title = root.optString("title").takeIf { it.isNotBlank() }
+            ?: root.optString("name").takeIf { it.isNotBlank() }
+            ?: return null
+        val album = root.optJSONObject("album")
+        return TrackMeta(
+            title = title,
+            artist = root.optJSONObject("artist")?.optString("name")?.takeIf { it.isNotBlank() },
+            album = album?.optString("title")?.takeIf { it.isNotBlank() }
+                ?: title.takeIf { kind == EntityKind.ALBUM },
+            durationMs = root.optInt("duration", 0).takeIf { it > 0 }?.times(1000),
+            artwork = picture(root) ?: album?.let { picture(it) },
+            kind = kind,
+        )
+    }
+
+    private fun picture(holder: JSONObject): String? =
+        listOf("cover_big", "cover_medium", "picture_big", "picture_medium")
+            .firstNotNullOfOrNull { size -> holder.optString(size).takeIf { it.startsWith("https://") } }
 
     private fun youtube(url: String): TrackMeta? {
         val id = Uri.parse(url).getQueryParameter("v") ?: return null

@@ -1,6 +1,7 @@
 package dev.crossfeed.core
 
 import android.content.Context
+import dev.crossfeed.core.catalog.Catalog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -12,21 +13,20 @@ data class LibraryItem(
     val album: String?,
     val durationMs: Int?,
     val local: LocalTrack? = null,
-    val catalog: AppleCatalog.Hit? = null,
+    val catalog: Catalog.Record? = null,
     val artwork: String? = null,
 ) {
     val sources: List<String>
-        get() = listOfNotNull(local?.format, catalog?.let { "apple music" })
+        get() = listOfNotNull(local?.format, catalog?.platform?.label ?: catalog?.let { "catalogue" })
 }
 
 object Library {
 
     suspend fun search(context: Context, query: String): List<LibraryItem> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext recent(context)
-        val country = Prefs(context).country
         coroutineScope {
             val localJob = async { LocalLibrary.search(context, query) }
-            val catalogJob = async { AppleCatalog.search(query, country) }
+            val catalogJob = async { Catalog.search(context, query) }
             merge(localJob.await(), catalogJob.await())
         }
     }
@@ -35,7 +35,7 @@ object Library {
         LocalLibrary.recent(context).map { it.toItem() }
     }
 
-    private fun merge(local: List<LocalTrack>, catalog: List<AppleCatalog.Hit>): List<LibraryItem> {
+    private fun merge(local: List<LocalTrack>, catalog: List<Catalog.Record>): List<LibraryItem> {
         val items = local.map { it.toItem() }.toMutableList()
         for (hit in catalog) {
             val index = items.indexOfFirst { item ->

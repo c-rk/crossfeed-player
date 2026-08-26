@@ -1,6 +1,7 @@
 package dev.crossfeed.core
 
 import android.content.Context
+import dev.crossfeed.core.catalog.Catalog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -54,7 +55,7 @@ object Resolver {
                 if (prefs.preferLocal) LocalLibrary.find(context, meta) else null
             }
             val routeJobs = targets.map { target ->
-                async { locate(meta, url, source, target, prefs.country) }
+                async { locate(context, meta, url, source, target) }
             }
             Resolved(
                 sourceUrl = url,
@@ -69,18 +70,19 @@ object Resolver {
         resolved
     }
 
+    /**
+     * A link already pointing at the service it was asked about needs no lookup, and no lookup
+     * could improve on it. Everything else is asked of the catalogues.
+     */
     private fun locate(
+        context: Context,
         meta: TrackMeta,
         url: String,
         source: Platform?,
         target: Platform,
-        country: String,
-    ): Route = when {
-        source == target -> Route(target, url, true)
-        target == Platform.APPLE_MUSIC -> AppleCatalog.find(meta, country)
-            ?.let { Route(target, it.url, true) }
-            ?: Route(target, target.searchUrl(meta.query, country), false)
-
-        else -> Route(target, target.searchUrl(meta.query, country), false)
+    ): Route {
+        if (source == target) return Route(target, url, true)
+        val address = Catalog.address(context, target, meta)
+        return Route(target, address.url, address.exact)
     }
 }

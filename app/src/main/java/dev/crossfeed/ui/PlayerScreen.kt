@@ -47,10 +47,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Artwork
 import dev.crossfeed.core.LocalLibrary
-import dev.crossfeed.core.player.Bucket
-import dev.crossfeed.core.AppleCatalog
-import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.Router
+import dev.crossfeed.core.catalog.Catalog
+import dev.crossfeed.core.player.Bucket
 import dev.crossfeed.core.player.Category
 import dev.crossfeed.core.player.LocalBrowse
 import dev.crossfeed.core.player.PlayerEngine
@@ -90,16 +89,16 @@ fun PlayerScreen() {
             delay(240)
             val mine = Sources.search(context, query, limit = 120)
             val known = mine.map { fold(it.title, it.artist) }.toSet()
-            // the catalogue is a blocking http call, so it cannot be made from the composition
+            // the catalogues are blocking http calls, so they cannot be made from the composition
             val catalog = withContext(Dispatchers.IO) {
-                runCatching { AppleCatalog.search(query, Prefs(context).country, limit = 25) }
+                runCatching { Catalog.search(context, query, limit = 25) }
                     .onFailure { Log.w("PlayerScreen", "catalogue search failed", it) }
                     .getOrDefault(emptyList())
             }
                 .filterNot { fold(it.title, it.artist) in known }
                 .map {
                     Track(
-                        id = "catalog:" + it.url,
+                        id = "catalog:" + (it.url ?: fold(it.title, it.artist)),
                         title = it.title,
                         artist = it.artist,
                         album = it.album,

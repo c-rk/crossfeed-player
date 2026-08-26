@@ -1,6 +1,7 @@
 package dev.crossfeed.core
 
 import android.content.Context
+import dev.crossfeed.core.catalog.Catalog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,12 +26,8 @@ object Router {
             }
 
             val target = prefs.primary
-            if (target == Platform.APPLE_MUSIC) {
-                AppleCatalog.find(meta, prefs.country)?.let {
-                    return@withContext PlayRoute(null, target, it.url, true)
-                }
-            }
-            PlayRoute(null, target, target.searchUrl(meta.query, prefs.country), false)
+            val address = Catalog.address(context, target, meta)
+            PlayRoute(null, target, address.url, address.exact)
         }
 
     suspend fun play(context: Context, title: String, artist: String?) {

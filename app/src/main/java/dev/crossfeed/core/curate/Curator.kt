@@ -1,10 +1,7 @@
 package dev.crossfeed.core.curate
 
 import android.content.Context
-import dev.crossfeed.core.AppleCatalog
-import dev.crossfeed.core.Http
-import dev.crossfeed.core.Json
-import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.catalog.Catalog
 import dev.crossfeed.core.history.HistoryDb
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -154,13 +151,12 @@ object Curator {
         return out
     }
 
-    private fun discover(
+    private suspend fun discover(
         context: Context,
         recipe: Recipe,
         known: List<Pick>,
         budget: Long,
     ): List<Pick> {
-        val country = Prefs(context).country
         val seen = known.map { "${it.title}|${it.artist}".lowercase() }.toMutableSet()
         val out = mutableListOf<Pick>()
 
@@ -181,12 +177,14 @@ object Curator {
 
         for (seed in seeds.distinct().take(10)) {
             if (out.sumOf { it.durationMs } > budget * 3) break
-            for (hit in AppleCatalog.search(seed, country, limit = 50)) {
-                val key = "${hit.title}|${hit.artist}".lowercase()
+            for (hit in Catalog.search(context, seed, limit = 50)) {
+                // a record nobody is credited on cannot be spread across a running order
+                val artist = hit.artist?.takeIf { it.isNotBlank() } ?: continue
+                val key = "${hit.title}|$artist".lowercase()
                 if (!seen.add(key)) continue
                 val pick = Pick(
                     title = hit.title,
-                    artist = hit.artist,
+                    artist = artist,
                     album = hit.album,
                     durationMs = (hit.durationMs ?: 0).toLong(),
                     artwork = hit.artwork,

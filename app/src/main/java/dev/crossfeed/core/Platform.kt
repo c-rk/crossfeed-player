@@ -10,7 +10,9 @@ enum class Platform(
 ) {
     APPLE_MUSIC("apple_music", "apple music", "com.apple.android.music", "appleMusic"),
     SPOTIFY("spotify", "spotify", "com.spotify.music", "spotify"),
-    YOUTUBE_MUSIC("youtube_music", "youtube music", "com.google.android.apps.youtube.music", "youtubeMusic");
+    YOUTUBE_MUSIC("youtube_music", "youtube music", "com.google.android.apps.youtube.music", "youtubeMusic"),
+    TIDAL("tidal", "tidal", "com.aspiro.tidal", "tidal"),
+    DEEZER("deezer", "deezer", "deezer.android.app", "deezer");
 
     /**
      * Apple keeps a separate catalogue per country, and a release in one is often missing from
@@ -23,6 +25,8 @@ enum class Platform(
             APPLE_MUSIC -> "https://music.apple.com/$country/search?term=$q"
             SPOTIFY -> "https://open.spotify.com/search/$q"
             YOUTUBE_MUSIC -> "https://music.youtube.com/search?q=$q"
+            TIDAL -> "https://tidal.com/search?q=$q"
+            DEEZER -> "https://www.deezer.com/search/$q"
         }
     }
 
