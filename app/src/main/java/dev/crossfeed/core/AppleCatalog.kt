@@ -43,6 +43,23 @@ object AppleCatalog {
         }
     }
 
+    /**
+     * Whether the shop lists a recording artist under this exact name. A short or local title
+     * scores badly however real it is, so the person is asked about when the song cannot be found.
+     */
+    fun knows(name: String, country: String): Boolean {
+        if (name.isBlank()) return false
+        val term = URLEncoder.encode(name, "UTF-8")
+        val url = "https://itunes.apple.com/search?term=$term&entity=musicArtist&limit=5&country=$country"
+        val response = Http.get(url, accept = "application/json") ?: return false
+        val results = Json.parse(response.body)?.optJSONArray("results") ?: return false
+        for (index in 0 until results.length()) {
+            val listed = results.optJSONObject(index)?.optString("artistName").orEmpty()
+            if (listed.equals(name, ignoreCase = true)) return true
+        }
+        return false
+    }
+
     fun find(meta: TrackMeta, country: String): Hit? {
         val album = meta.kind == EntityKind.ALBUM
         val entity = if (album) "album" else "song"

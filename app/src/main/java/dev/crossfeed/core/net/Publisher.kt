@@ -2,8 +2,8 @@ package dev.crossfeed.core.net
 
 import android.content.Context
 import android.util.Log
-import dev.crossfeed.core.AppleCatalog
 import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.catalog.Catalog
 import dev.crossfeed.core.history.HistoryDb
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -111,15 +111,16 @@ object Publisher {
 
     fun remoteArt(context: Context, title: String, artist: String?): String? {
         val db = HistoryDb.get(context)
-        val key = "$title|${artist.orEmpty()}".lowercase()
+        // the mark carries a generation, so a song no catalogue knew when only one was asked is
+        // asked about again now that several are
+        val key = "$GENERATION|$title|${artist.orEmpty()}".lowercase()
         val cached = db.remoteArt(key)
         if (cached != null) {
             if (cached.isNotBlank() && !cached.startsWith(MISS)) return cached
             val missedAt = cached.removePrefix(MISS).toLongOrNull() ?: 0L
             if (System.currentTimeMillis() - missedAt < MISS_HOLDS_MS) return null
         }
-        val query = listOfNotNull(artist, title).joinToString(" ")
-        val url = AppleCatalog.search(query, Prefs(context).country, limit = 1).firstOrNull()?.artwork
+        val url = Catalog.art(context, title, artist)
         db.setRemoteArt(key, url ?: (MISS + System.currentTimeMillis()))
         return url
     }
@@ -136,6 +137,7 @@ object Publisher {
 
     private const val FIRST_PUSH_MS = 20_000L
     private const val REPUSH_MS = 90_000L
+    private const val GENERATION = "v2"
     private const val MISS = "miss:"
     private const val MISS_HOLDS_MS = 7L * 24 * 3600_000
 }
