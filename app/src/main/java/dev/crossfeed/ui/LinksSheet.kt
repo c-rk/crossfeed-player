@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,12 +28,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.core.graphics.drawable.toBitmap
 import dev.crossfeed.core.Links
 import dev.crossfeed.core.Opener
 import dev.crossfeed.core.ServiceLink
@@ -101,13 +97,7 @@ fun LinksSheet(title: String, artist: String?, onDismiss: () -> Unit) {
 /** The service's own icon, so the row is recognisable before it is read. */
 @Composable
 private fun AppMark(link: ServiceLink, onClick: () -> Unit) {
-    val context = LocalContext.current
     val glass = LocalGlass.current
-    val icon = remember(link.platform) {
-        runCatching {
-            context.packageManager.getApplicationIcon(link.platform.pkg).toBitmap(72, 72).asImageBitmap()
-        }.getOrNull()
-    }
     Box(
         Modifier
             .size(38.dp)
@@ -116,15 +106,7 @@ private fun AppMark(link: ServiceLink, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (icon != null) {
-            Image(bitmap = icon as ImageBitmap, contentDescription = link.platform.label, modifier = Modifier.size(26.dp))
-        } else {
-            Text(
-                link.platform.label.take(1),
-                style = Type.headline,
-                color = glass.ink,
-            )
-        }
+        PlatformGlyph(link.platform, size = 26.dp)
     }
 }
 

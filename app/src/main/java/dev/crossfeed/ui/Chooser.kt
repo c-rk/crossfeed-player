@@ -1,6 +1,5 @@
 package dev.crossfeed.ui
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -58,7 +56,6 @@ fun TargetChooser(
 @Composable
 fun PlatformRow(platform: Platform, badge: String? = null, onClick: () -> Unit) {
     val glass = LocalGlass.current
-    val icon = rememberAppIcon(platform.pkg)
     Row(
         Modifier
             .fillMaxWidth()
@@ -75,11 +72,7 @@ fun PlatformRow(platform: Platform, badge: String? = null, onClick: () -> Unit) 
                 .border(1.dp, glass.strokeSoft, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (icon != null) {
-                Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(26.dp).clip(CircleShape))
-            } else {
-                Text(platform.label.take(1).uppercase(), style = Type.headline, color = glass.inkFaint)
-            }
+            PlatformGlyph(platform, size = 26.dp)
         }
         Text(
             platform.label,

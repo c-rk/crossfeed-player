@@ -3,7 +3,6 @@ package dev.crossfeed.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -182,7 +181,6 @@ private fun WheelIcon(
     onClick: () -> Unit,
 ) {
     val glass = LocalGlass.current
-    val icon = rememberAppIcon(platform.pkg)
     Box(modifier.size(66.dp), contentAlignment = Alignment.Center) {
         Box(
             Modifier
@@ -211,22 +209,7 @@ private fun WheelIcon(
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            if (icon != null) {
-                Image(
-                    bitmap = icon,
-                    contentDescription = platform.label,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .graphicsLayer { alpha = if (available) 1f else 0.4f },
-                )
-            } else {
-                Text(
-                    platform.label.take(1).uppercase(),
-                    style = Type.title,
-                    color = if (available) glass.ink else glass.inkFaint,
-                )
-            }
+            PlatformGlyph(platform, size = 38.dp, dimmed = !available)
         }
         if (order != null) {
             Box(

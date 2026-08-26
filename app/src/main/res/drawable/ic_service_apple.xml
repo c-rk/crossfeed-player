@@ -1,0 +1,23 @@
+<!-- apple music: two notes under one beam -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10.2,6.7L20.4,4.4v3.2L10.2,9.9z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8.9,7.2h1.7v10.1H8.9z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18.7,5h1.7v9.4h-1.7z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.4,15.3a2.9,2.5 0 1,0 0,5a2.9,2.5 0 1,0 0,-5z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16.2,12.4a2.9,2.5 0 1,0 0,5a2.9,2.5 0 1,0 0,-5z" />
+</vector>
