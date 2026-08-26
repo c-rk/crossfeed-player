@@ -2,6 +2,7 @@ package dev.crossfeed.core.catalog
 
 import android.content.Context
 import dev.crossfeed.core.AppleCatalog
+import dev.crossfeed.core.EntityKind
 import dev.crossfeed.core.Matching
 import dev.crossfeed.core.Platform
 import dev.crossfeed.core.Prefs
@@ -9,6 +10,7 @@ import dev.crossfeed.core.TrackMeta
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * One place to ask what a song is, what its sleeve looks like, and where it can be heard.
@@ -77,7 +79,7 @@ object Catalog {
 
         val record = sequence {
             for (shop in shops) yield { apple(meta, shop) }
-            yield { Deezer.find(meta) }
+            yield { deezer(meta) }
             yield { CoverArt.find(meta.title, meta.artist, meta.durationMs)?.let { rate(it, meta) } }
         }.mapNotNull { runCatching { it() }.getOrNull() }
             .firstOrNull { it.score >= minScore }
@@ -121,10 +123,10 @@ object Catalog {
 
         val url = when (platform) {
             Platform.APPLE_MUSIC -> storefronts(context).firstNotNullOfOrNull { shop ->
-                runCatching { AppleCatalog.find(meta, shop)?.url }.getOrNull()
+                runCatching { apple(meta, shop)?.url }.getOrNull()
             }
 
-            Platform.DEEZER -> runCatching { Deezer.find(meta)?.url }.getOrNull()
+            Platform.DEEZER -> runCatching { deezer(meta)?.url }.getOrNull()
 
             else -> null
         }
@@ -197,6 +199,40 @@ object Catalog {
 
     private fun apple(meta: TrackMeta, shop: String): Record? =
         AppleCatalog.find(meta, shop)?.toRecord(shop)
+            ?: sameRecording(meta) { alone ->
+                AppleCatalog.search(alone.query, shop, limit = 8).map { it.toRecord(shop) }
+            }
+
+    private fun deezer(meta: TrackMeta): Record? =
+        Deezer.find(meta) ?: sameRecording(meta) { alone -> Deezer.search(alone.query, limit = 8) }
+
+    /**
+     * Catalogues disagree about who a song is by. One credits the composer, another the singer,
+     * a third the film, and a search for the wrong one of those comes back with the artist's other
+     * work and not the song at all. Saaral En is Thaman on deezer and Ranjith on apple, and asking
+     * apple for "Thaman S Saaral En" finds neither.
+     *
+     * So when the name gets in the way, the title is asked on its own. That is only safe when the
+     * answer can be checked against something the credits cannot argue with, which is the length
+     * of the recording. Both must be known, the titles must match outright, and the two must run
+     * to within a few seconds of each other. Anything looser would pin every song called Hello to
+     * the first one in the shop.
+     */
+    private fun sameRecording(meta: TrackMeta, ask: (TrackMeta) -> List<Record>): Record? {
+        if (meta.kind == EntityKind.ALBUM || meta.kind == EntityKind.PLAYLIST) return null
+        if (meta.artist.isNullOrBlank()) return null
+        val length = meta.durationMs ?: return null
+        val alone = meta.copy(artist = null)
+
+        return runCatching { ask(alone) }.getOrDefault(emptyList())
+            .firstOrNull { candidate ->
+                val runs = candidate.durationMs ?: return@firstOrNull false
+                Matching.similarity(meta.title, candidate.title) >= 0.999 && abs(runs - length) <= 5_000
+            }
+            // the record is right and only the credit was in dispute, so it is worth acting on.
+            // whoever this shop credits is kept, since that is who its own page will name
+            ?.copy(score = 0.85)
+    }
 
     private fun AppleCatalog.Hit.toRecord(shop: String) = Record(
         title = title,

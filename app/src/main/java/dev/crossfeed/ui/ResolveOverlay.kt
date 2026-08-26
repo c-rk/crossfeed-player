@@ -53,12 +53,16 @@ import dev.crossfeed.core.Resolved
 import dev.crossfeed.core.Resolver
 import dev.crossfeed.core.Route
 import dev.crossfeed.core.TrackMeta
+import dev.crossfeed.core.catalog.Catalog
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -229,10 +233,36 @@ private fun Sheet(outcome: Resolved, onDone: () -> Unit) {
     }
 
     // a shared song is usually on its way to someone else, so every service is offered rather
-    // than only the ones this phone opens links in
-    val everywhere = Platform.entries.map { platform ->
+    // than only the ones this phone opens links in.
+    //
+    // a search stands in for each of them until the catalogues answer, since the rows should be
+    // there to read straight away, and any that can be pinned to the record itself then are
+    fun searches() = Platform.entries.map { platform ->
         outcome.routes.firstOrNull { it.platform == platform }
-            ?: Route(platform, platform.searchUrl(meta.query, Prefs(context).country), false)
+            ?: if (platform == outcome.source) {
+                Route(platform, outcome.sourceUrl, true)
+            } else {
+                Route(platform, platform.searchUrl(meta.query, Prefs(context).country), false)
+            }
+    }
+
+    var everywhere by remember(outcome.sourceUrl) { mutableStateOf(searches()) }
+
+    LaunchedEffect(outcome.sourceUrl) {
+        everywhere = withContext(Dispatchers.IO) {
+            coroutineScope {
+                searches().map { route ->
+                    async {
+                        if (route.exact) {
+                            route
+                        } else {
+                            val address = Catalog.address(context, route.platform, meta)
+                            Route(route.platform, address.url, address.exact)
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
     }
 
     for (route in everywhere) {
