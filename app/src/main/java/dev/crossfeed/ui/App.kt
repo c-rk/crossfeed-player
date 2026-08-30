@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.ui.settings.SettingsScreen
 import dev.crossfeed.ui.theme.LocalGlass
@@ -72,7 +73,9 @@ fun CrossfeedApp() {
         Box(
             Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars),
+                // only the top is kept clear. the nav pill floats over the page rather than
+                // cutting it off, so a feed carries on underneath it
+                .windowInsetsPadding(WindowInsets.statusBars),
         ) {
             if (nav.canPop) {
                 when (nav.current) {
@@ -146,19 +149,25 @@ private fun NavPill(selected: Dest, onSelect: (Dest) -> Unit, modifier: Modifier
             val on = dest == selected
             Box(
                 Modifier
-                    .size(width = 34.dp, height = 30.dp)
+                    .size(width = if (on) 44.dp else 36.dp, height = 32.dp)
                     .clip(shape)
+                    .background(if (on) glass.accent else Color.Transparent)
                     .clickable { onSelect(dest) },
                 contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    Modifier
-                        .width(if (on) 26.dp else 7.dp)
-                        .height(7.dp)
-                        .clip(CircleShape)
-                        .background(if (on) glass.accent else glass.dot),
+                Mark(
+                    glyphOf(dest),
+                    side = 15.dp,
+                    tint = if (on) glass.onAccent else glass.dot,
                 )
             }
         }
     }
+}
+
+private fun glyphOf(dest: Dest): Glyph = when (dest) {
+    Dest.AUX -> Glyph.PEOPLE
+    Dest.PLAYER -> Glyph.DISC
+    Dest.SETTINGS -> Glyph.GEAR
+    else -> Glyph.DIARY
 }

@@ -21,7 +21,10 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.ui.theme.LocalGlass
 
-enum class Glyph { PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST, CLOSE, DEVICE, SEARCH, REPLY }
+enum class Glyph {
+    PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST, CLOSE,
+    DEVICE, SEARCH, REPLY, DIARY, PEOPLE, DISC, GEAR,
+}
 
 @Composable
 fun IconAction(
@@ -202,6 +205,53 @@ fun Mark(
                         lineTo(w * 0.12f, h * 0.88f)
                     }
                     drawPath(cross, ink, style = stroke)
+                }
+
+                Glyph.DIARY -> {
+                    // the sparkline, small: what the diary is for
+                    val bar = w * 0.2f
+                    val heights = listOf(0.5f, 0.82f, 0.34f, 1f)
+                    heights.forEachIndexed { index, share ->
+                        val tall = h * share
+                        drawRoundRect(
+                            ink,
+                            Offset(index * (bar + w * 0.07f), h - tall),
+                            androidx.compose.ui.geometry.Size(bar, tall),
+                            androidx.compose.ui.geometry.CornerRadius(bar / 2f, bar / 2f),
+                        )
+                    }
+                }
+
+                Glyph.PEOPLE -> {
+                    drawCircle(ink, w * 0.24f, Offset(w * 0.32f, h * 0.36f))
+                    drawCircle(ink, w * 0.24f, Offset(w * 0.68f, h * 0.36f))
+                    val path = Path().apply {
+                        moveTo(0f, h)
+                        cubicTo(w * 0.06f, h * 0.6f, w * 0.58f, h * 0.6f, w * 0.64f, h)
+                        close()
+                    }
+                    drawPath(path, ink)
+                    val second = Path().apply {
+                        moveTo(w * 0.36f, h)
+                        cubicTo(w * 0.42f, h * 0.6f, w * 0.94f, h * 0.6f, w, h)
+                        close()
+                    }
+                    drawPath(second, ink)
+                }
+
+                Glyph.DISC -> {
+                    drawCircle(ink, w * 0.48f, Offset(w * 0.5f, h * 0.5f), style = Stroke(width = w * 0.12f))
+                    drawCircle(ink, w * 0.13f, Offset(w * 0.5f, h * 0.5f))
+                }
+
+                Glyph.GEAR -> {
+                    drawCircle(ink, w * 0.28f, Offset(w * 0.5f, h * 0.5f), style = Stroke(width = w * 0.13f))
+                    val tooth = androidx.compose.ui.geometry.Size(w * 0.13f, h * 0.2f)
+                    repeat(8) { index ->
+                        rotate(index * 45f, Offset(w * 0.5f, h * 0.5f)) {
+                            drawRect(ink, Offset(w * 0.5f - tooth.width / 2f, 0f), tooth)
+                        }
+                    }
                 }
 
                 Glyph.DEVICE -> {
