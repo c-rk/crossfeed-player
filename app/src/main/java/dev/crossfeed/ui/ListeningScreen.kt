@@ -83,7 +83,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ListeningScreen() {
+fun ListeningLegacy() {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val scope = rememberCoroutineScope()

@@ -74,14 +74,23 @@ fun SettingsScreen(nav: Nav) {
             .padding(horizontal = Space.large),
     ) {
         Spacer(Modifier.height(Space.medium))
-        Text("settings", style = Type.wordmark, color = glass.ink)
+        Text("your call", style = Type.page, color = glass.t1)
+        Text(
+            "turn on only what buys you something.",
+            style = Type.note,
+            color = glass.t3,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+
+        Spacer(Modifier.height(Space.medium))
+        RoutingCard()
 
         Spacer(Modifier.height(Space.medium))
         GlassCard {
-            SectionHeader("routing")
+            SectionHeader("links")
             EntryRow(
-                title = "route",
-                subtitle = "which apps links open in, and who owns them",
+                title = "try a link, and who owns them",
+                subtitle = "paste one to see where it lands, and fix any android sent elsewhere",
                 onClick = { nav.push(Dest.ROUTE) },
             )
         }

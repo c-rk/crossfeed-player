@@ -54,6 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.crossfeed.core.player.PlayerEngine
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
@@ -72,13 +75,14 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
     val deck = rememberDeck()
 
     var expanded by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
+    var pane by remember { mutableStateOf(Pane.NOW) }
+    val showQueue = pane == Pane.QUEUE
     var hidden by remember { mutableStateOf(false) }
 
     LaunchedEffect(deck?.id) { hidden = false }
 
     BackHandler(enabled = expanded) {
-        if (showQueue) showQueue = false else expanded = false
+        if (pane != Pane.NOW) pane = Pane.NOW else expanded = false
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -90,7 +94,7 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                 if (expanded) 0f else fullPx,
                 spring(dampingRatio = 0.9f, stiffness = 340f),
             )
-            if (!expanded) showQueue = false
+            if (!expanded) pane = Pane.NOW
         }
 
         Column(
@@ -151,8 +155,8 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                             },
                             onDragEnd = {
                                 when {
-                                    showQueue && travel > 60f -> showQueue = false
-                                    !showQueue && travel < -60f && deck.local -> showQueue = true
+                                    showQueue && travel > 60f -> pane = Pane.NOW
+                                    !showQueue && travel < -60f && deck.local -> pane = Pane.QUEUE
                                     !showQueue && travel > 110f -> expanded = false
                                     else -> scope.launch {
                                         offset.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 340f))
@@ -168,28 +172,63 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                         .windowInsetsPadding(WindowInsets.systemBars),
                 ) {
                     Handle(onTap = { expanded = false })
+                    PaneTabs(pane, deck.local) { pane = it }
                     Crossfade(
-                        targetState = showQueue,
+                        targetState = pane,
                         animationSpec = tween(180),
                         label = "pane",
                         modifier = Modifier.weight(1f),
-                    ) { queue ->
-                        if (queue) QueuePane() else NowPlayingPane(deck)
+                    ) { shown ->
+                        when (shown) {
+                            Pane.QUEUE -> QueuePane()
+                            Pane.LYRICS -> LyricsScreen(onClose = { pane = Pane.NOW })
+                            else -> NowPlayingPane(deck)
+                        }
                     }
-                    Text(
-                        when {
-                            showQueue -> "swipe down for the player"
-                            deck.local -> "swipe up for the queue"
-                            else -> "its queue stays in that app"
-                        },
-                        style = Type.caps,
-                        color = glass.inkFaint,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = Space.medium),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
                 }
+            }
+        }
+    }
+}
+
+/** now, sing along, queue. Sing along is one of the three, not a button hiding on a card. */
+enum class Pane { NOW, LYRICS, QUEUE }
+
+@Composable
+private fun PaneTabs(pane: Pane, queueable: Boolean, onPick: (Pane) -> Unit) {
+    val glass = LocalGlass.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Space.large, vertical = Space.tight)
+            .clip(Shapes.chip)
+            .background(glass.p1)
+            .border(1.dp, glass.bd, Shapes.chip)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        for (option in Pane.entries) {
+            if (option == Pane.QUEUE && !queueable) continue
+            val on = option == pane
+            Box(
+                Modifier
+                    .weight(if (option == Pane.LYRICS) 1.2f else 1f)
+                    .clip(Shapes.chip)
+                    .background(if (on) glass.accent else Color.Transparent)
+                    .clickable { onPick(option) }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    when (option) {
+                        Pane.NOW -> "now"
+                        Pane.LYRICS -> "sing along"
+                        Pane.QUEUE -> "queue"
+                    },
+                    style = Type.chip,
+                    color = if (on) glass.onAccent else glass.t3,
+                    maxLines = 1,
+                )
             }
         }
     }

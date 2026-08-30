@@ -94,8 +94,12 @@ object Update {
 
     /** Compares the parts as numbers, so 0.5.10 comes after 0.5.9 rather than before it. */
     private fun isNewer(candidate: String, running: String): Boolean {
-        val left = candidate.split('.').map { it.toIntOrNull() ?: 0 }
-        val right = running.split('.').map { it.toIntOrNull() ?: 0 }
+        // a build can carry a suffix, like the redesign's 0.5.9-glass, and only the numbers count
+        fun parts(value: String) = value.split('.').map { part ->
+            part.takeWhile { it.isDigit() }.toIntOrNull() ?: 0
+        }
+        val left = parts(candidate)
+        val right = parts(running)
         for (index in 0 until maxOf(left.size, right.size)) {
             val a = left.getOrElse(index) { 0 }
             val b = right.getOrElse(index) { 0 }

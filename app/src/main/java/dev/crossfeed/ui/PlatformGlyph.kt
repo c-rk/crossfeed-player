@@ -24,8 +24,16 @@ import dev.crossfeed.ui.theme.LocalGlass
  * "T" or "D" is a row nobody recognises at a glance.
  */
 @Composable
-fun PlatformGlyph(platform: Platform, size: Dp, dimmed: Boolean = false) {
-    val icon = rememberAppIcon(platform.pkg)
+fun PlatformGlyph(
+    platform: Platform,
+    size: Dp,
+    dimmed: Boolean = false,
+    /** Forces the drawn mark, for places where the installed icon would be the wrong shape. */
+    drawn: Boolean = false,
+    /** Overrides the mark's colour, for when it sits on a filled node rather than a dark one. */
+    tint: Color? = null,
+) {
+    val icon = if (drawn) null else rememberAppIcon(platform.pkg)
     val faded = Modifier.alpha(if (dimmed) 0.4f else 1f)
 
     if (icon != null) {
@@ -39,7 +47,7 @@ fun PlatformGlyph(platform: Platform, size: Dp, dimmed: Boolean = false) {
     Image(
         painter = painterResource(markOf(platform)),
         contentDescription = platform.label,
-        colorFilter = ColorFilter.tint(tintOf(platform)),
+        colorFilter = ColorFilter.tint(tint ?: tintOf(platform)),
         modifier = faded.then(Modifier.size(size * 0.92f)),
     )
 }

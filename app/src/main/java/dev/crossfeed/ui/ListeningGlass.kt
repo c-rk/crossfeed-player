@@ -1,0 +1,513 @@
+package dev.crossfeed.ui
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import dev.crossfeed.core.Artwork
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.history.Dashboard
+import dev.crossfeed.core.history.HistoryDb
+import dev.crossfeed.core.history.Play
+import dev.crossfeed.core.history.Range
+import dev.crossfeed.core.history.Stats
+import dev.crossfeed.core.lyrics.LyricsSource
+import dev.crossfeed.ui.theme.Accents
+import dev.crossfeed.ui.theme.LocalGlass
+import dev.crossfeed.ui.theme.Look
+import dev.crossfeed.ui.theme.Shapes
+import dev.crossfeed.ui.theme.Space
+import dev.crossfeed.ui.theme.Type
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/**
+ * The diary.
+ *
+ * One figure, big enough to be the point of the page, then the smaller ones that qualify it, then
+ * what is playing, then what has already played today. Everything else the app can do lives
+ * somewhere else; this page answers one question and answers it first.
+ */
+@Composable
+fun ListeningScreen() {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    val prefs = remember { Prefs(context) }
+
+    var range by remember { mutableStateOf(Range.WEEK) }
+    var data by remember { mutableStateOf<Dashboard?>(null) }
+    var week by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var grid by remember { mutableStateOf(prefs.diaryGrid) }
+    var searching by remember { mutableStateOf(false) }
+
+    LaunchedEffect(range) {
+        data = Stats.load(context, range, "")
+        week = withContext(Dispatchers.IO) { lastSevenDays(context) }
+    }
+
+    val deck = rememberDeck()
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(if (grid) 3 else 1),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = Space.large,
+            end = Space.large,
+            top = Space.small,
+            bottom = 150.dp,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
+        verticalArrangement = Arrangement.spacedBy(if (grid) 9.dp else 0.dp),
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                UpdateBanner()
+                Spacer(Modifier.height(Space.tight))
+                Header()
+                Spacer(Modifier.height(Space.medium))
+                Periods(range) { range = it }
+                Spacer(Modifier.height(Space.small))
+                StatCard(data, range, week)
+                Spacer(Modifier.height(Space.small))
+                deck?.let {
+                    NowPlayingCard(it)
+                    Spacer(Modifier.height(Space.tight))
+                    LyricStrip(it)
+                    Spacer(Modifier.height(Space.small))
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(top = Space.tight, bottom = Space.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("the day so far", style = Type.section, color = glass.t1, modifier = Modifier.weight(1f))
+                    ViewToggle(grid) {
+                        grid = it
+                        prefs.diaryGrid = it
+                    }
+                }
+            }
+        }
+
+        val plays = data?.feed.orEmpty()
+        if (plays.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    "nothing yet in this stretch.",
+                    style = Type.note,
+                    color = glass.t3,
+                    modifier = Modifier.padding(vertical = Space.medium),
+                )
+            }
+        }
+
+        items(plays, key = { it.id }) { play ->
+            if (grid) PlayTile(play) else PlayRow(play)
+        }
+    }
+
+    if (searching) Unit
+}
+
+@Composable
+private fun Header() {
+    val glass = LocalGlass.current
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("listening", style = Type.page, color = glass.t1, modifier = Modifier.weight(1f))
+        ServicePill()
+    }
+}
+
+/** Which service the app is wearing today, said quietly, in that service's own colour. */
+@Composable
+private fun ServicePill() {
+    val glass = LocalGlass.current
+    Row(
+        Modifier
+            .clip(Shapes.chip)
+            .background(glass.p2)
+            .border(1.dp, glass.bd, Shapes.chip)
+            .padding(horizontal = 11.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(6.dp).clip(CircleShape).background(glass.accent))
+        Text(Accents.nameOf(Look.lead), style = Type.metaStrong, color = glass.t2, maxLines = 1)
+    }
+}
+
+@Composable
+private fun Periods(range: Range, onPick: (Range) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Space.tight)) {
+        for (option in Range.entries) {
+            GlassChip(option.label, selected = option == range) { onPick(option) }
+        }
+    }
+}
+
+/**
+ * One number set flush left like a poster, the week beside it as bars, and the three counts that
+ * qualify it underneath.
+ */
+@Composable
+private fun StatCard(data: Dashboard?, range: Range, week: List<Long>) {
+    val glass = LocalGlass.current
+    val summary = data?.summary
+
+    GlassCard(padding = Space.medium) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text(hoursOf(summary?.listenedMs ?: 0), style = Type.heroFigure, color = glass.t1, maxLines = 1)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "hours · " + caption(range),
+                    style = Type.tag,
+                    color = glass.accent,
+                    maxLines = 1,
+                )
+            }
+            Sparkline(week)
+        }
+
+        Spacer(Modifier.height(Space.medium))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(glass.bd))
+        Spacer(Modifier.height(Space.medium))
+
+        Row(Modifier.fillMaxWidth()) {
+            Figure("plays", summary?.totalPlays ?: 0, Modifier.weight(1f), rule = false)
+            Figure("tracks", summary?.distinctTracks ?: 0, Modifier.weight(1f), rule = true)
+            Figure("artists", summary?.distinctArtists ?: 0, Modifier.weight(1f), rule = true)
+        }
+    }
+}
+
+@Composable
+private fun Figure(label: String, value: Int, modifier: Modifier = Modifier, rule: Boolean) {
+    val glass = LocalGlass.current
+    Row(modifier) {
+        if (rule) {
+            Box(Modifier.width(1.dp).height(38.dp).background(glass.bd))
+            Spacer(Modifier.width(13.dp))
+        }
+        Column {
+            Text(grouped(value), style = Type.statFigure, color = glass.t1, maxLines = 1)
+            Spacer(Modifier.height(3.dp))
+            Text(label.uppercase(), style = Type.tagSmall, color = glass.t3, maxLines = 1)
+        }
+    }
+}
+
+/** Seven days as seven bars, with the best one in the accent. */
+@Composable
+private fun Sparkline(week: List<Long>) {
+    val glass = LocalGlass.current
+    val peak = week.maxOrNull()?.takeIf { it > 0 } ?: 1L
+    Row(
+        Modifier.width(104.dp).height(44.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        val bars = if (week.size == 7) week else List(7) { 0L }
+        for (value in bars) {
+            val share = (value.toFloat() / peak.toFloat()).coerceIn(0.06f, 1f)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(44.dp * share)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (value == peak && value > 0) glass.accent else glass.t1.copy(alpha = 0.18f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingCard(deck: Deck) {
+    val glass = LocalGlass.current
+    GlassCard(padding = 13.dp) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Sleeve(deck.title, deck.artwork, 46.dp, Shapes.artSmall)
+            Spacer(Modifier.width(11.dp))
+            Column(Modifier.weight(1f)) {
+                Text(deck.title, style = Type.rowTitleLarge, color = glass.t1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    deck.artist.orEmpty(),
+                    style = Type.note,
+                    color = glass.t3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(7.dp))
+                Rail(if (deck.durationMs > 0) deck.positionMs.toFloat() / deck.durationMs else 0f)
+            }
+            Spacer(Modifier.width(11.dp))
+            PlayCircle(38.dp, playing = deck.playing) { deck.toggle() }
+        }
+    }
+}
+
+@Composable
+private fun Rail(progress: Float) {
+    val glass = LocalGlass.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(3.dp)
+            .clip(CircleShape)
+            .background(glass.line),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(3.dp)
+                .clip(CircleShape)
+                .background(glass.accent),
+        )
+    }
+}
+
+/** A line of the song, set like a book rather than like an interface. */
+@Composable
+private fun LyricStrip(deck: Deck) {
+    val glass = LocalGlass.current
+    val context = LocalContext.current
+    var line by remember(deck.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(deck.id) {
+        line = runCatching {
+            LyricsSource.find(context, deck.title, deck.artist, null, deck.durationMs)
+                ?.lines
+                ?.firstOrNull { it.text.isNotBlank() }
+                ?.text
+        }.getOrNull()
+    }
+
+    val words = line ?: return
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(glass.sageTint)
+            .border(1.dp, glass.sageBorder, RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            words,
+            style = Type.quiet,
+            color = glass.t1,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(11.dp))
+        Text("sing along", style = Type.tagWide, color = glass.sage, maxLines = 1)
+    }
+}
+
+@Composable
+private fun PlayRow(play: Play) {
+    val glass = LocalGlass.current
+    Column {
+        RowRule()
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Sleeve(play.title, play.artwork, 30.dp, RoundedCornerShape(9.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Row {
+                    Text(play.title, style = Type.rowTitle, color = glass.t1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    play.artist?.let {
+                        Text(
+                            " $it",
+                            style = Type.meta,
+                            color = glass.t3,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Text(clock(play.startedAt), style = Type.stamp, color = glass.t3, maxLines = 1)
+            }
+            Spacer(Modifier.width(10.dp))
+            val done = completion(play)
+            Text(
+                done,
+                style = Type.metaStrong,
+                color = if (finished(play)) glass.sage else glass.t3,
+                maxLines = 1,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(34.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayTile(play: Play) {
+    val glass = LocalGlass.current
+    Column {
+        Box {
+            Sleeve(play.title, play.artwork, 0.dp, Shapes.artSmall, fill = true)
+            Text(
+                completion(play),
+                style = Type.metaStrong,
+                color = if (finished(play)) glass.sage else glass.t2,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(5.dp)
+                    .clip(Shapes.chip)
+                    .background(glass.scrim)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            play.title,
+            style = Type.note,
+            color = glass.t1,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(clock(play.startedAt), style = Type.meta, color = glass.t3, maxLines = 1)
+    }
+}
+
+/**
+ * Album art where there is any, and where there is not, the first letter of the title on a colour
+ * mixed from the title itself, so the same record always comes out the same shade.
+ */
+@Composable
+fun Sleeve(
+    title: String,
+    artwork: String?,
+    side: Dp,
+    shape: Shape,
+    fill: Boolean = false,
+) {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    val base = remember(title) { tintFor(title) }
+    var art by remember(artwork) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(artwork) {
+        art = artwork?.takeIf { it.isNotBlank() }?.let { url ->
+            runCatching { Artwork.loadUrl(context, url)?.asImageBitmap() }.getOrNull()
+        }
+    }
+
+    Box(
+        (if (fill) Modifier.fillMaxWidth().aspectRatio(1f) else Modifier.size(side))
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(base, base.copy(alpha = 0.45f).compositeOver(glass.bg)))),
+        contentAlignment = Alignment.Center,
+    ) {
+        val bitmap = art
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(
+                title.take(1).uppercase(),
+                style = if (fill) Type.sectionLarge else Type.section,
+                color = glass.t1.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
+
+/** A colour mixed from the name, so a record without a sleeve still has a face. */
+private fun tintFor(title: String): Color {
+    val hash = title.lowercase().fold(0) { acc, ch -> acc * 31 + ch.code }
+    val palette = listOf(
+        Color(0xFF5C2A30), Color(0xFF3D472B), Color(0xFF4A2A12),
+        Color(0xFF2F3238), Color(0xFF3A2740), Color(0xFF23404A),
+    )
+    return palette[((hash % palette.size) + palette.size) % palette.size]
+}
+
+// figures
+
+/** Hours and minutes, as a clock reads, because that is how long feels. */
+private fun hoursOf(ms: Long): String {
+    val minutes = ms / 60_000
+    return "%d:%02d".format(minutes / 60, minutes % 60)
+}
+
+private fun grouped(value: Int): String =
+    if (value < 1000) value.toString() else "%,d".format(value).replace(',', ' ')
+
+private fun caption(range: Range): String = when (range) {
+    Range.TODAY -> "today"
+    Range.WEEK -> "this week"
+    Range.MONTH -> "this month"
+    Range.ALL -> "all time"
+}
+
+private fun completion(play: Play): String {
+    if (play.durationMs <= 0) return "·"
+    val share = (play.listenedMs * 100 / play.durationMs).toInt()
+    return if (share >= 100) "${share / 100}×".takeIf { share >= 200 } ?: "100%" else "$share%"
+}
+
+private fun finished(play: Play): Boolean =
+    play.durationMs > 0 && play.listenedMs * 100 / play.durationMs >= 95
+
+private fun clock(millis: Long): String {
+    val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+    return "%02d:%02d".format(
+        calendar.get(java.util.Calendar.HOUR_OF_DAY),
+        calendar.get(java.util.Calendar.MINUTE),
+    )
+}
+
+private fun lastSevenDays(context: android.content.Context): List<Long> {
+    val db = HistoryDb.get(context)
+    val byDay = db.activeDays(dev.crossfeed.core.history.Days.ago(6)).toMap()
+    return (6 downTo 0).map { back -> byDay[dev.crossfeed.core.history.Days.ago(back)] ?: 0L }
+}
