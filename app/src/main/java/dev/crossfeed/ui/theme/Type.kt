@@ -118,8 +118,8 @@ object Type {
     val rowTitle = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Bold,
-        fontSize = 12.sp,
-        lineHeight = 15.sp,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
     )
 
     val rowTitleLarge = TextStyle(
@@ -143,8 +143,8 @@ object Type {
     val meta = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Normal,
-        fontSize = 9.5.sp,
-        lineHeight = 13.sp,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
     )
 
     val metaStrong = TextStyle(
@@ -157,16 +157,16 @@ object Type {
     val stamp = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 10.sp,
-        lineHeight = 13.sp,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
         fontFeatureSettings = TABULAR,
     )
 
     val chip = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
+        fontSize = 12.sp,
+        lineHeight = 15.sp,
     )
 
     val label = TextStyle(
@@ -179,40 +179,40 @@ object Type {
     val note = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Normal,
-        fontSize = 10.5.sp,
-        lineHeight = 16.sp,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
     )
 
     val description = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Normal,
-        fontSize = 10.sp,
-        lineHeight = 14.5.sp,
+        fontSize = 11.5.sp,
+        lineHeight = 16.sp,
     )
 
     /** All caps, tracked wide, tiny. Used for the labels that name a figure. */
     val tag = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Bold,
-        fontSize = 9.5.sp,
-        lineHeight = 12.sp,
-        letterSpacing = 1.52.sp,
+        fontSize = 10.5.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 1.5.sp,
     )
 
     val tagSmall = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Bold,
-        fontSize = 8.5.sp,
-        lineHeight = 11.sp,
-        letterSpacing = 1.19.sp,
+        fontSize = 9.5.sp,
+        lineHeight = 12.sp,
+        letterSpacing = 1.2.sp,
     )
 
     val tagWide = TextStyle(
         fontFamily = Grotesk,
         fontWeight = FontWeight.Bold,
-        fontSize = 9.sp,
-        lineHeight = 12.sp,
-        letterSpacing = 1.62.sp,
+        fontSize = 10.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 1.6.sp,
     )
 
     // lyrics, the only serif in the app
@@ -235,24 +235,24 @@ object Type {
         fontFamily = Reading,
         fontWeight = FontWeight.Normal,
         fontStyle = FontStyle.Italic,
-        fontSize = 13.sp,
-        lineHeight = 19.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
     )
 
     val lyricMeaningNear = TextStyle(
         fontFamily = Reading,
         fontWeight = FontWeight.Normal,
         fontStyle = FontStyle.Italic,
-        fontSize = 11.5.sp,
-        lineHeight = 16.sp,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
     )
 
     val quiet = TextStyle(
         fontFamily = Reading,
         fontWeight = FontWeight.Normal,
         fontStyle = FontStyle.Italic,
-        fontSize = 13.sp,
-        lineHeight = 19.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
     )
 
     // the names the rest of the app already calls things, pointed at the new faces so every

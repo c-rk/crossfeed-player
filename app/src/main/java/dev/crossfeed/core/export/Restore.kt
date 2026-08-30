@@ -87,6 +87,10 @@ object Restore {
             added++
         }
 
+        // a sheet lands on top of whatever was captured while it was away, so the two are
+        // folded together before any of it is counted
+        db.tidy()
+
         Result(added, skipped, unreadable)
     }
 

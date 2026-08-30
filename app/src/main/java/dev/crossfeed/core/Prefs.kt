@@ -58,6 +58,11 @@ class Prefs(context: Context) {
             routes = if (value) listOf(ON_DEVICE) + rest else rest + ON_DEVICE
         }
 
+    /** When the diary was last folded together, so it happens daily rather than every launch. */
+    var tidiedAt: Long
+        get() = store.getLong(KEY_TIDIED, 0)
+        set(value) = store.edit().putLong(KEY_TIDIED, value).apply()
+
     /** Which colour mode the app wears. Absent means whatever the phone is set to. */
     var mode: String?
         get() = store.getString(KEY_MODE, null)
@@ -152,6 +157,7 @@ class Prefs(context: Context) {
 
         private const val KEY_TARGETS = "targets"
         private const val KEY_ROUTES = "routes"
+        private const val KEY_TIDIED = "tidied_at"
         private const val KEY_MODE = "colour_mode"
         private const val KEY_DIARY_GRID = "diary_grid"
         private const val KEY_AUX_GRID = "aux_grid"

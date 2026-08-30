@@ -154,13 +154,22 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                                 }
                             },
                             onDragEnd = {
+                                // the sheet is one column read downwards: the player, then the
+                                // words, then the queue. scrolling on moves through them
+                                val order = if (deck.local) {
+                                    listOf(Pane.NOW, Pane.LYRICS, Pane.QUEUE)
+                                } else {
+                                    listOf(Pane.NOW, Pane.LYRICS)
+                                }
+                                val at = order.indexOf(pane).coerceAtLeast(0)
                                 when {
-                                    showQueue && travel > 60f -> pane = Pane.NOW
-                                    !showQueue && travel < -60f && deck.local -> pane = Pane.QUEUE
-                                    !showQueue && travel > 110f -> expanded = false
-                                    else -> scope.launch {
-                                        offset.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 340f))
-                                    }
+                                    travel < -60f && at < order.lastIndex -> pane = order[at + 1]
+                                    travel > 60f && at > 0 -> pane = order[at - 1]
+                                    travel > 110f && at == 0 -> expanded = false
+                                    else -> Unit
+                                }
+                                scope.launch {
+                                    offset.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 340f))
                                 }
                             },
                         )
@@ -172,7 +181,6 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                         .windowInsetsPadding(WindowInsets.systemBars),
                 ) {
                     Handle(onTap = { expanded = false })
-                    PaneTabs(pane, deck.local) { pane = it }
                     Crossfade(
                         targetState = pane,
                         animationSpec = tween(180),
@@ -185,54 +193,31 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                             else -> NowPlayingPane(deck)
                         }
                     }
+                    Text(
+                        when {
+                            pane == Pane.QUEUE -> "swipe down for the words"
+                            pane == Pane.LYRICS && deck.local -> "swipe up for the queue"
+                            pane == Pane.LYRICS -> "swipe down for the player"
+                            else -> "swipe up for the words"
+                        },
+                        style = Type.tag,
+                        color = glass.t3,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = Space.medium),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
                 }
             }
         }
     }
 }
 
-/** now, sing along, queue. Sing along is one of the three, not a button hiding on a card. */
+/**
+ * The sheet is one column read downwards: what is playing, then the words to it, then what comes
+ * next. Sing along is not a tab and not a button on a card; it is simply the next thing down.
+ */
 enum class Pane { NOW, LYRICS, QUEUE }
-
-@Composable
-private fun PaneTabs(pane: Pane, queueable: Boolean, onPick: (Pane) -> Unit) {
-    val glass = LocalGlass.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Space.large, vertical = Space.tight)
-            .clip(Shapes.chip)
-            .background(glass.p1)
-            .border(1.dp, glass.bd, Shapes.chip)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        for (option in Pane.entries) {
-            if (option == Pane.QUEUE && !queueable) continue
-            val on = option == pane
-            Box(
-                Modifier
-                    .weight(if (option == Pane.LYRICS) 1.2f else 1f)
-                    .clip(Shapes.chip)
-                    .background(if (on) glass.accent else Color.Transparent)
-                    .clickable { onPick(option) }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    when (option) {
-                        Pane.NOW -> "now"
-                        Pane.LYRICS -> "sing along"
-                        Pane.QUEUE -> "queue"
-                    },
-                    style = Type.chip,
-                    color = if (on) glass.onAccent else glass.t3,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun Handle(onTap: () -> Unit) {

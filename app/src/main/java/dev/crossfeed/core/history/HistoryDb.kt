@@ -32,6 +32,10 @@ class HistoryDb private constructor(context: Context) :
 
     private var pendingMerge = false
 
+    /** Long enough to catch a song restarted or reported twice, short enough that
+     *  putting a record on again in the evening is still a second listen. */
+    private val TIDY_WINDOW_MS = 45 * 60_000L
+
     fun runPendingMaintenance() {
         if (!pendingMerge) return
         pendingMerge = false
@@ -321,7 +325,10 @@ class HistoryDb private constructor(context: Context) :
 
         val rows = mutableListOf<Row>()
         readableDatabase.rawQuery(
-            "SELECT id, LOWER(TRIM(title)) || '|' || LOWER(TRIM(IFNULL(artist,''))) || '|' || source, " +
+            // the key deliberately leaves the app out. one song, one stretch of time, is one
+            // listen, whether it was spotify and the browser both reporting it or a diary
+            // brought over from another install alongside one captured here
+            "SELECT id, LOWER(TRIM(title)) || '|' || LOWER(TRIM(IFNULL(artist,''))), " +
                 "started_at, MAX(last_at, started_at), listened_ms FROM plays ORDER BY started_at ASC",
             null,
         ).use { cursor ->
@@ -368,6 +375,59 @@ class HistoryDb private constructor(context: Context) :
             db.endTransaction()
         }
         return gone.size
+    }
+
+    /**
+     * Folds a song reported more than once into the single listen it was, then recounts.
+     *
+     * Duplicates arrive in more ways than one. Two apps can watch the same session; a browser and
+     * a music app can both claim the same song; a diary imported from another phone can land on
+     * top of one captured here. None of those are two listens, and left alone they inflate every
+     * figure on the page.
+     *
+     * The totals are derived from the plays rather than patched, so whatever the merge decides,
+     * the numbers agree with it.
+     */
+    fun tidy(windowMs: Long = TIDY_WINDOW_MS): Int {
+        val removed = mergeDuplicates(windowMs)
+        if (removed > 0) recount()
+        return removed
+    }
+
+    /** Throws away the running totals and adds them up again from the plays themselves. */
+    fun recount() {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.execSQL(
+                "DELETE FROM agg WHERE kind IN (?,?,?,?,?,?)",
+                arrayOf(Kind.DAY, Kind.HOUR, Kind.SOURCE, Kind.TITLE, Kind.ARTIST, Kind.ALBUM),
+            )
+            db.rawQuery(
+                "SELECT title, artist, album, source, started_at, listened_ms FROM plays",
+                null,
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val title = cursor.getString(0) ?: continue
+                    val artist = cursor.getString(1)
+                    val album = cursor.getString(2)
+                    val source = cursor.getString(3) ?: continue
+                    val startedAt = cursor.getLong(4)
+                    val listened = cursor.getLong(5)
+                    val day = Days.of(startedAt)
+                    val hour = Days.hourOf(startedAt).toString()
+                    db.bump(Kind.DAY, day, day, 1, listened)
+                    db.bump(Kind.HOUR, hour, day, 1, listened)
+                    db.bump(Kind.SOURCE, source, day, 1, listened)
+                    db.bump(Kind.TITLE, title, day, 1, listened)
+                    artist?.takeIf { it.isNotBlank() }?.let { db.bump(Kind.ARTIST, it, day, 1, listened) }
+                    album?.takeIf { it.isNotBlank() }?.let { db.bump(Kind.ALBUM, it, day, 1, listened) }
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
     }
 
     fun remoteArt(key: String): String? {

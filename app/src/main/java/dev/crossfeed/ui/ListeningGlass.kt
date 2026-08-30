@@ -47,10 +47,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.history.Dashboard
+import dev.crossfeed.core.history.Days
 import dev.crossfeed.core.history.HistoryDb
 import dev.crossfeed.core.history.Play
 import dev.crossfeed.core.history.Range
 import dev.crossfeed.core.history.Stats
+import dev.crossfeed.core.history.Tally
 import dev.crossfeed.core.lyrics.LyricsSource
 import dev.crossfeed.ui.theme.Accents
 import dev.crossfeed.ui.theme.LocalGlass
@@ -78,11 +80,24 @@ fun ListeningScreen() {
     var data by remember { mutableStateOf<Dashboard?>(null) }
     var week by remember { mutableStateOf<List<Long>>(emptyList()) }
     var grid by remember { mutableStateOf(prefs.diaryGrid) }
-    var searching by remember { mutableStateOf(false) }
+    var showLyrics by remember { mutableStateOf(false) }
+    var showCurate by remember { mutableStateOf(false) }
+
+    // once a day, fold anything reported twice into the one listen it was, then recount. doing
+    // it here rather than on every write keeps the capture path cheap
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val since = System.currentTimeMillis() - prefs.tidiedAt
+            if (since > 24 * 3600_000L) {
+                runCatching { HistoryDb.get(context).tidy() }
+                prefs.tidiedAt = System.currentTimeMillis()
+            }
+        }
+    }
 
     LaunchedEffect(range) {
         data = Stats.load(context, range, "")
-        week = withContext(Dispatchers.IO) { lastSevenDays(context) }
+        week = withContext(Dispatchers.IO) { spark(context, range) }
     }
 
     val deck = rememberDeck()
@@ -112,7 +127,7 @@ fun ListeningScreen() {
                 deck?.let {
                     NowPlayingCard(it)
                     Spacer(Modifier.height(Space.tight))
-                    LyricStrip(it)
+                    LyricStrip(it) { showLyrics = true }
                     Spacer(Modifier.height(Space.small))
                 }
                 Row(
@@ -143,9 +158,110 @@ fun ListeningScreen() {
         items(plays, key = { it.id }) { play ->
             if (grid) PlayTile(play) else PlayRow(play)
         }
+
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                Spacer(Modifier.height(Space.medium))
+                Chart("top artists", data?.artists.orEmpty())
+                Chart("most played", data?.tracks.orEmpty())
+                Chart("top albums", data?.albums.orEmpty())
+                Chart("genres", data?.genres.orEmpty())
+                Chart("where you listened", data?.sources.orEmpty()) { sourceLabel(context, it) }
+                data?.let { Habits(it) }
+                Spacer(Modifier.height(Space.small))
+                GlassCard(padding = Space.medium) {
+                    Text("a list, made for you", style = Type.section, color = glass.t1)
+                    Text(
+                        "built from what you already play, on this phone, out of your own files.",
+                        style = Type.note,
+                        color = glass.t3,
+                        modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
+                    )
+                    GlassButton(label = "make me a list", filled = true, compact = true) {
+                        showCurate = true
+                    }
+                }
+            }
+        }
     }
 
-    if (searching) Unit
+    if (showLyrics) LyricsScreen(onClose = { showLyrics = false })
+    if (showCurate) CurateScreen(onClose = { showCurate = false })
+}
+
+/**
+ * A bar per thing, longest first. The figure is time rather than plays, because an hour of one
+ * artist says more than forty seconds of another forty times.
+ */
+@Composable
+private fun Chart(
+    title: String,
+    rows: List<Tally>,
+    label: (String) -> String = { it },
+) {
+    if (rows.isEmpty()) return
+    val glass = LocalGlass.current
+    val peak = rows.maxOf { it.listenedMs }.coerceAtLeast(1)
+
+    Spacer(Modifier.height(Space.small))
+    GlassCard(padding = Space.medium) {
+        Text(title, style = Type.section, color = glass.t1)
+        Spacer(Modifier.height(Space.small))
+        for (row in rows) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label(row.label),
+                    style = Type.rowTitle,
+                    color = glass.t1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(Stats.minutes(row.listenedMs), style = Type.stamp, color = glass.t3)
+            }
+            Spacer(Modifier.height(4.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(CircleShape)
+                    .background(glass.p2),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(row.listenedMs.toFloat() / peak)
+                        .height(5.dp)
+                        .clip(CircleShape)
+                        .background(glass.accent),
+                )
+            }
+            Spacer(Modifier.height(Space.small))
+        }
+    }
+}
+
+/** The shape of the habit rather than its size. */
+@Composable
+private fun Habits(data: Dashboard) {
+    val glass = LocalGlass.current
+    Spacer(Modifier.height(Space.small))
+    GlassCard(padding = Space.medium) {
+        Text("habits", style = Type.section, color = glass.t1)
+        Spacer(Modifier.height(Space.small))
+        Row(Modifier.fillMaxWidth()) {
+            Figure("day streak", data.habits.streak, Modifier.weight(1f), rule = false)
+            Figure("finished", (data.habits.completion * 100).toInt(), Modifier.weight(1f), rule = true)
+            Figure("skipped", data.habits.skips, Modifier.weight(1f), rule = true)
+        }
+        data.habits.peakHour?.let {
+            Spacer(Modifier.height(Space.small))
+            Text(
+                "you listen most around " + Stats.hourLabel(it),
+                style = Type.note,
+                color = glass.t3,
+            )
+        }
+    }
 }
 
 @Composable
@@ -246,7 +362,7 @@ private fun Sparkline(week: List<Long>) {
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
-        val bars = if (week.size == 7) week else List(7) { 0L }
+        val bars = week.ifEmpty { List(7) { 0L } }
         for (value in bars) {
             val share = (value.toFloat() / peak.toFloat()).coerceIn(0.06f, 1f)
             Box(
@@ -307,7 +423,7 @@ private fun Rail(progress: Float) {
 
 /** A line of the song, set like a book rather than like an interface. */
 @Composable
-private fun LyricStrip(deck: Deck) {
+private fun LyricStrip(deck: Deck, onOpen: () -> Unit) {
     val glass = LocalGlass.current
     val context = LocalContext.current
     var line by remember(deck.id) { mutableStateOf<String?>(null) }
@@ -328,6 +444,7 @@ private fun LyricStrip(deck: Deck) {
             .clip(RoundedCornerShape(18.dp))
             .background(glass.sageTint)
             .border(1.dp, glass.sageBorder, RoundedCornerShape(18.dp))
+            .clickable(onClick = onOpen)
             .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -506,8 +623,41 @@ private fun clock(millis: Long): String {
     )
 }
 
-private fun lastSevenDays(context: android.content.Context): List<Long> {
+/**
+ * The bars under the hero figure, bucketed to match whatever stretch is showing: hours across a
+ * day, days across a week, threes of days across a month, months across everything.
+ */
+private fun spark(context: android.content.Context, range: Range): List<Long> {
     val db = HistoryDb.get(context)
-    val byDay = db.activeDays(dev.crossfeed.core.history.Days.ago(6)).toMap()
-    return (6 downTo 0).map { back -> byDay[dev.crossfeed.core.history.Days.ago(back)] ?: 0L }
+    return when (range) {
+        Range.TODAY -> {
+            val byHour = db.hourHistogram(Days.ago(0)).toMap()
+            (0 until 8).map { slot -> (0 until 3).sumOf { byHour[slot * 3 + it] ?: 0L } }
+        }
+
+        Range.WEEK -> {
+            val byDay = db.activeDays(Days.ago(6)).toMap()
+            (6 downTo 0).map { back -> byDay[Days.ago(back)] ?: 0L }
+        }
+
+        Range.MONTH -> {
+            val byDay = db.activeDays(Days.ago(29)).toMap()
+            (9 downTo 0).map { block -> (0 until 3).sumOf { byDay[Days.ago(block * 3 + it)] ?: 0L } }
+        }
+
+        Range.ALL -> {
+            val byMonth = LinkedHashMap<String, Long>()
+            for ((day, listened) in db.activeDays()) {
+                val month = day.take(7)
+                byMonth[month] = (byMonth[month] ?: 0L) + listened
+            }
+            byMonth.entries.sortedBy { it.key }.takeLast(12).map { it.value }
+        }
+    }
 }
+
+/** Which app a play came from, named the way its own launcher names it. */
+private fun sourceLabel(context: android.content.Context, pkg: String): String = runCatching {
+    val manager = context.packageManager
+    manager.getApplicationLabel(manager.getApplicationInfo(pkg, 0)).toString().lowercase()
+}.getOrDefault(pkg.substringAfterLast('.'))
