@@ -53,6 +53,16 @@ android {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("local")
         }
+        // the redesign, built so it installs beside the app you already use rather than over
+        // it. same key, own package, own diary, so the new one can be lived with for a while
+        // before it replaces anything
+        create("glass") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".glass"
+            versionNameSuffix = "-glass"
+            signingConfig = signingConfigs.getByName("local")
+            matchingFallbacks += listOf("release")
+        }
         debug {
             applicationIdSuffix = ".debug"
         }

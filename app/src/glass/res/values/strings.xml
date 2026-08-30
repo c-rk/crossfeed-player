@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- so the redesign is tellable from the app it is meant to replace -->
+    <string name="app_name">Crossfeed Glass</string>
+</resources>
