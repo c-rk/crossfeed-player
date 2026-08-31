@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Prefs
+import dev.crossfeed.core.Router
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -266,7 +267,7 @@ fun SocialScreen() {
                 }
                 if (posts.isNotEmpty()) {
                     Text(
-                        "double tap for a banger · hold for the rest",
+                        "tap to hear it · double tap for a banger · hold for the rest",
                         style = Type.meta,
                         color = glass.t3,
                         modifier = Modifier.padding(bottom = Space.tight),
@@ -296,12 +297,14 @@ fun SocialScreen() {
             val onHold = { picking = post.id }
             // the quick one: two taps says the thing most people want to say, without a menu
             val onLove = { react(post, reactions.first()) }
+            // a tap is the plain thing a tap should be: hear it, wherever your route points
+            val onOpen = { scope.launch { Router.play(context, post.title, post.artist) }; Unit }
             val onPick = { reaction: Reaction -> react(post, reaction) }
             val onLet = { picking = null }
             if (grid) {
-                FeedTile(post, holding, onHold, onLove, onPick, onLet)
+                FeedTile(post, holding, onOpen, onHold, onLove, onPick, onLet)
             } else {
-                FeedRow(post, holding, onHold, onLove, onPick, onLet)
+                FeedRow(post, holding, onOpen, onHold, onLove, onPick, onLet)
             }
         }
 
@@ -447,6 +450,7 @@ private fun Listening(live: List<Live>) {
 private fun FeedRow(
     post: Post,
     holding: Boolean,
+    onOpen: () -> Unit,
     onHold: () -> Unit,
     onLove: () -> Unit,
     onPick: (Reaction) -> Unit,
@@ -455,7 +459,7 @@ private fun FeedRow(
     val glass = LocalGlass.current
     Column(
         Modifier.combinedClickable(
-            onClick = { },
+            onClick = onOpen,
             onDoubleClick = onLove,
             onLongClick = onHold,
         ),
@@ -489,6 +493,7 @@ private fun FeedRow(
 private fun FeedTile(
     post: Post,
     holding: Boolean,
+    onOpen: () -> Unit,
     onHold: () -> Unit,
     onLove: () -> Unit,
     onPick: (Reaction) -> Unit,
@@ -499,7 +504,7 @@ private fun FeedTile(
         shape = Shapes.grid,
         padding = 10.dp,
         modifier = Modifier.combinedClickable(
-            onClick = { },
+            onClick = onOpen,
             onDoubleClick = onLove,
             onLongClick = onHold,
         ),
