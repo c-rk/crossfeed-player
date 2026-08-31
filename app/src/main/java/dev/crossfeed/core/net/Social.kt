@@ -74,7 +74,13 @@ data class Live(
     val source: String?,
     val at: Long,
     val self: Boolean,
-)
+    val listenedMs: Long = 0,
+    val durationMs: Long = 0,
+) {
+    /** How far through the track they are, as far as the last thing they told the server. */
+    val through: Float
+        get() = if (durationMs > 0) (listenedMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+}
 
 object Social {
 
@@ -102,6 +108,8 @@ object Social {
                         source = it.stringOrNull("source"),
                         at = it.optLong("at"),
                         self = it.optBoolean("self"),
+                        listenedMs = it.optLong("listenedMs"),
+                        durationMs = it.optLong("durationMs"),
                     )
                 }
             },
@@ -128,6 +136,8 @@ object Social {
                 source = it.stringOrNull("source"),
                 at = it.optLong("at"),
                 self = it.optBoolean("self"),
+                listenedMs = it.optLong("listenedMs"),
+                durationMs = it.optLong("durationMs"),
             )
         }
     }

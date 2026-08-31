@@ -1,6 +1,11 @@
 package dev.crossfeed.ui
 
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -367,20 +372,42 @@ private fun Tray(alerts: Alerts, onClear: () -> Unit) {
 @Composable
 private fun Listening(live: List<Live>) {
     val glass = LocalGlass.current
+    val ring = glass.sage
+    val rest = glass.t1.copy(alpha = 0.13f)
     Row(horizontalArrangement = Arrangement.spacedBy(Space.medium)) {
         for (person in live.take(3)) {
             Column(
                 Modifier.width(70.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(
-                    Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
-                        .background(glass.sage.copy(alpha = 0.35f))
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
+                Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {
+                    // the ring is the track: sage as far as they have got, faint for the rest,
+                    // starting at twelve and going round the way a record does
+                    Canvas(Modifier.size(60.dp)) {
+                        val width = 3.dp.toPx()
+                        val inset = width / 2f
+                        val box = Size(size.width - width, size.height - width)
+                        drawArc(
+                            color = rest,
+                            startAngle = -90f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = box,
+                            style = Stroke(width = width, cap = StrokeCap.Round),
+                        )
+                        if (person.through > 0f) {
+                            drawArc(
+                                color = ring,
+                                startAngle = -90f,
+                                sweepAngle = 360f * person.through,
+                                useCenter = false,
+                                topLeft = Offset(inset, inset),
+                                size = box,
+                                style = Stroke(width = width, cap = StrokeCap.Round),
+                            )
+                        }
+                    }
                     Box(
                         Modifier.size(51.dp).clip(CircleShape).background(glass.p3),
                         contentAlignment = Alignment.Center,
