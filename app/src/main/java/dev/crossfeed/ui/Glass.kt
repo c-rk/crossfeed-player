@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -342,6 +345,21 @@ fun SectionHeader(text: String, trailing: (@Composable () -> Unit)? = null) {
 fun RowRule() {
     val glass = LocalGlass.current
     Box(Modifier.fillMaxWidth().height(1.dp).background(glass.p2))
+}
+
+/**
+ * How much room to leave at the foot of a page.
+ *
+ * The mini player and the nav pill float over the page rather than pushing it up, which is what
+ * lets a feed carry on underneath them. The cost of that is every scrolling page has to know they
+ * are there, so it is worked out once, here, and includes the phone's own gesture bar.
+ */
+@Composable
+fun bottomRoom(): Dp {
+    val gesture = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // the nav pill, and the mini player when there is something playing to show in it
+    val furniture = if (rememberDeck() != null) 152.dp else 68.dp
+    return gesture + furniture
 }
 
 @Composable

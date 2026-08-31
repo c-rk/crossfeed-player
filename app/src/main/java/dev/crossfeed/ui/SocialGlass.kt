@@ -122,7 +122,7 @@ fun SocialScreen() {
     LazyVerticalGrid(
         columns = GridCells.Fixed(if (grid) 2 else 1),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Space.large, end = Space.large, top = Space.small, bottom = 150.dp),
+        contentPadding = PaddingValues(start = Space.large, end = Space.large, top = Space.small, bottom = bottomRoom()),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(if (grid) 10.dp else 0.dp),
     ) {

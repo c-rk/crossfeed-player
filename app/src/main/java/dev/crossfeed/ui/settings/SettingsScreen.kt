@@ -47,6 +47,7 @@ import dev.crossfeed.ui.GlassButton
 import dev.crossfeed.ui.GlassCard
 import dev.crossfeed.ui.Nav
 import dev.crossfeed.ui.SectionHeader
+import dev.crossfeed.ui.bottomRoom
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
@@ -71,7 +72,8 @@ fun SettingsScreen(nav: Nav) {
     Column(
         Modifier
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = Space.large),
+            .padding(horizontal = Space.large)
+            .padding(bottom = bottomRoom()),
     ) {
         Spacer(Modifier.height(Space.medium))
         Text("your call", style = Type.page, color = glass.t1)

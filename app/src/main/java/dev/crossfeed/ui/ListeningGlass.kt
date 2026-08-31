@@ -109,7 +109,7 @@ fun ListeningScreen() {
             start = Space.large,
             end = Space.large,
             top = Space.small,
-            bottom = 150.dp,
+            bottom = bottomRoom(),
         ),
         horizontalArrangement = Arrangement.spacedBy(11.dp),
         verticalArrangement = Arrangement.spacedBy(if (grid) 9.dp else 0.dp),

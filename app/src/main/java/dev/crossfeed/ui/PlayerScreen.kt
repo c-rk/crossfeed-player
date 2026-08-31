@@ -314,7 +314,7 @@ fun PlayerScreen() {
                     )
                 }
             }
-            item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(150.dp)) }
+            item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(bottomRoom())) }
         }
     }
 
