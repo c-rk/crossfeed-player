@@ -6,6 +6,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -262,6 +264,14 @@ fun SocialScreen() {
                         prefs.auxGrid = it
                     }
                 }
+                if (posts.isNotEmpty()) {
+                    Text(
+                        "double tap for a banger · hold for the rest",
+                        style = Type.meta,
+                        color = glass.t3,
+                        modifier = Modifier.padding(bottom = Space.tight),
+                    )
+                }
             }
         }
 
@@ -282,25 +292,19 @@ fun SocialScreen() {
         }
 
         items(posts, key = { it.id }) { post ->
+            val holding = picking == post.id
+            val onHold = { picking = post.id }
+            // the quick one: two taps says the thing most people want to say, without a menu
+            val onLove = { react(post, reactions.first()) }
+            val onPick = { reaction: Reaction -> react(post, reaction) }
+            val onLet = { picking = null }
             if (grid) {
-                FeedTile(post) { picking = post.id }
+                FeedTile(post, holding, onHold, onLove, onPick, onLet)
             } else {
-                FeedRow(post) { picking = post.id }
+                FeedRow(post, holding, onHold, onLove, onPick, onLet)
             }
         }
 
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            val target = posts.firstOrNull { it.id == picking }
-            Rise(target != null) {
-                Column {
-                    Spacer(Modifier.height(Space.small))
-                    Picker(
-                        onPick = { reaction -> target?.let { react(it, reaction) } },
-                        onDismiss = { picking = null },
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -438,10 +442,24 @@ private fun Listening(live: List<Live>) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FeedRow(post: Post, onHold: () -> Unit) {
+private fun FeedRow(
+    post: Post,
+    holding: Boolean,
+    onHold: () -> Unit,
+    onLove: () -> Unit,
+    onPick: (Reaction) -> Unit,
+    onLet: () -> Unit,
+) {
     val glass = LocalGlass.current
-    Column(Modifier.clickable(onClick = onHold)) {
+    Column(
+        Modifier.combinedClickable(
+            onClick = { },
+            onDoubleClick = onLove,
+            onLongClick = onHold,
+        ),
+    ) {
         RowRule()
         Row(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -462,13 +480,30 @@ private fun FeedRow(post: Post, onHold: () -> Unit) {
             Spacer(Modifier.width(Space.tight))
             Bubbles(post)
         }
+        Held(holding, post, onPick, onLet)
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FeedTile(post: Post, onHold: () -> Unit) {
+private fun FeedTile(
+    post: Post,
+    holding: Boolean,
+    onHold: () -> Unit,
+    onLove: () -> Unit,
+    onPick: (Reaction) -> Unit,
+    onLet: () -> Unit,
+) {
     val glass = LocalGlass.current
-    GlassCard(shape = Shapes.grid, padding = 10.dp, modifier = Modifier.clickable(onClick = onHold)) {
+    GlassCard(
+        shape = Shapes.grid,
+        padding = 10.dp,
+        modifier = Modifier.combinedClickable(
+            onClick = { },
+            onDoubleClick = onLove,
+            onLongClick = onHold,
+        ),
+    ) {
         Sleeve(post.title, post.art, 0.dp, Shapes.artRow, fill = true)
         Spacer(Modifier.height(7.dp))
         Text(post.title, style = Type.label, color = glass.t1, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -480,6 +515,7 @@ private fun FeedTile(post: Post, onHold: () -> Unit) {
         )
         Spacer(Modifier.height(7.dp))
         Bubbles(post)
+        Held(holding, post, onPick, onLet)
     }
 }
 
@@ -510,59 +546,57 @@ private fun Bubbles(post: Post) {
     }
 }
 
-/** The four, thumb sized, in the one order they ever appear in. */
+/**
+ * The three, over the row you are holding.
+ *
+ * It used to be a card at the foot of the feed: a screenful of chrome, appearing nowhere near the
+ * thing it was about, opened by a tap that also meant other things. Holding a row is the gesture
+ * every phone already teaches, it costs no layout at all, and the bubbles sit on the record they
+ * belong to.
+ */
 @Composable
-private fun Picker(onPick: (Reaction) -> Unit, onDismiss: () -> Unit) {
+private fun Held(open: Boolean, post: Post, onPick: (Reaction) -> Unit, onLet: () -> Unit) {
     val glass = LocalGlass.current
-    GlassCard(padding = 15.dp) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("hold to react", style = Type.sectionSmall, color = glass.t1, modifier = Modifier.weight(1f))
-            Text(
-                "CLOSE",
-                style = Type.tagWide,
-                color = glass.t3,
-                modifier = Modifier.clip(Shapes.chip).clickable(onClick = onDismiss).padding(4.dp),
-            )
-        }
-        Spacer(Modifier.height(Space.medium))
+    Rise(open) {
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            Modifier
+                .padding(top = 6.dp, bottom = 4.dp)
+                .clip(Shapes.chip)
+                .background(glass.p3)
+                .border(1.dp, glass.bd, Shapes.chip)
+                .padding(horizontal = 6.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             for (reaction in reactions) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (reaction == reactions.first()) glass.accent else glass.p2,
-                            )
-                            .border(
-                                1.dp,
-                                if (reaction == reactions.first()) Color.Transparent else glass.bd,
-                                CircleShape,
-                            )
-                            .clickable { onPick(reaction) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            reaction.emoji,
-                            style = Type.sectionSmall,
-                            color = glass.t1,
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(reaction.label, style = Type.metaStrong, color = glass.t3, maxLines = 1)
+                val mine = post.mine == reaction.emoji
+                Row(
+                    Modifier
+                        .clip(Shapes.chip)
+                        .background(if (mine) glass.accent else Color.Transparent)
+                        .clickable { onPick(reaction) }
+                        .padding(horizontal = 9.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(reaction.emoji, style = Type.chip)
+                    Text(
+                        reaction.label,
+                        style = Type.metaStrong,
+                        color = if (mine) glass.onAccent else glass.t3,
+                        maxLines = 1,
+                    )
                 }
             }
+            Box(
+                Modifier
+                    .clip(Shapes.chip)
+                    .clickable(onClick = onLet)
+                    .padding(horizontal = 7.dp, vertical = 6.dp),
+            ) {
+                Mark(Glyph.CLOSE, side = 10.dp, tint = glass.t3)
+            }
         }
-        Spacer(Modifier.height(Space.small))
-        Text(
-            "three, thumb sized, always the same three, always in this order.",
-            style = Type.note,
-            color = glass.t3,
-        )
     }
 }
 
