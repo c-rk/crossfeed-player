@@ -61,8 +61,8 @@ object Type {
     /** A page's name. One per screen, top left. */
     val page = TextStyle(
         fontFamily = Display,
-        fontSize = 25.sp,
-        lineHeight = 30.sp,
+        fontSize = 28.sp,
+        lineHeight = 33.sp,
         letterSpacing = 0.4.sp,
     )
 
@@ -95,22 +95,22 @@ object Type {
     /** A heading inside a page. */
     val section = TextStyle(
         fontFamily = Display,
-        fontSize = 16.sp,
-        lineHeight = 19.sp,
+        fontSize = 18.sp,
+        lineHeight = 22.sp,
         letterSpacing = 0.3.sp,
     )
 
     val sectionSmall = TextStyle(
         fontFamily = Display,
-        fontSize = 14.sp,
-        lineHeight = 17.sp,
+        fontSize = 16.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.25.sp,
     )
 
     val sectionLarge = TextStyle(
         fontFamily = Display,
-        fontSize = 18.sp,
-        lineHeight = 21.sp,
+        fontSize = 20.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.3.sp,
     )
 
@@ -258,7 +258,7 @@ object Type {
     // the names the rest of the app already calls things, pointed at the new faces so every
     // screen that has not been rebuilt yet still reads as one app
 
-    val wordmark = page.copy(fontSize = 26.sp, lineHeight = 32.sp)
+    val wordmark = page.copy(fontSize = 29.sp, lineHeight = 35.sp)
     val blockTitle = section
     val figure = statFigure.copy(fontSize = 34.sp, lineHeight = 36.sp)
     val hero = sectionLarge.copy(fontSize = 28.sp, lineHeight = 34.sp)

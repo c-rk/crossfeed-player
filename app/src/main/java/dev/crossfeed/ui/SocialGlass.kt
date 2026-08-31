@@ -127,6 +127,7 @@ fun SocialScreen() {
     var trayOpen by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
+    var sharing by remember { mutableStateOf(prefs.sharePlays) }
 
     // while the page is open it keeps itself current, so a friend accepting, a song starting
     // somewhere else, or a reaction arriving turns up on its own rather than on a swipe
@@ -217,6 +218,28 @@ fun SocialScreen() {
                 )
                 Spacer(Modifier.height(Space.small))
 
+                // an aux nobody is putting anything on is not broken, it is silent, and the
+                // difference was invisible: sharing is off until it is asked for, so a feed can
+                // sit empty for days looking like a fault
+                if (!sharing) {
+                    SageCard(padding = Space.medium) {
+                        Text("you are not on the aux", style = Type.section, color = glass.t1)
+                        Text(
+                            "nothing you play is being shared, so your people see an empty feed " +
+                                "and so do you. the track and how long, never the diary.",
+                            style = Type.note,
+                            color = glass.t2,
+                            modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
+                        )
+                        GlassButton(label = "start sharing", filled = true, compact = true) {
+                            prefs.sharePlays = true
+                            sharing = true
+                            note = "sharing from the next song on"
+                        }
+                    }
+                    Spacer(Modifier.height(Space.small))
+                }
+
                 Aux.trouble?.let {
                     Text(
                         it,
@@ -250,7 +273,9 @@ fun SocialScreen() {
                     when {
                         Aux.trouble != null -> Aux.trouble.orEmpty()
                         Aux.loadedAt == 0L -> "reading the aux\u2026"
-                        else -> "nothing on the aux yet."
+                        circle.accepted.isEmpty() -> "nobody on your aux yet. add someone by handle above."
+                        else -> "nobody has played anything since you connected. the feed starts " +
+                            "from the moment you added each other, never before it."
                     },
                     style = Type.note,
                     color = if (Aux.trouble != null) glass.warning else glass.t3,
