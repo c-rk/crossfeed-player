@@ -128,6 +128,43 @@ object Restore {
         return "file://" + java.io.File(ArtStore.folder(context), name).absolutePath
     }
 
+    /**
+     * Puts a whole diary back, replacing the one here rather than merging into it.
+     *
+     * This is the answer to moving phones, where merging is the wrong verb: you do not want your
+     * old diary folded into an empty one, you want it to be the diary. Everything the merge path
+     * cannot carry comes with it, because it is the same file rather than a reading of it: the
+     * saved tracks, the genre lookups, the artwork cache, what was already posted.
+     *
+     * The sleeves are unpacked first, since the diary that arrives will be naming them.
+     */
+    suspend fun whole(context: Context, uri: Uri): Result = withContext(Dispatchers.IO) {
+        val bytes = Bundle.database(context, uri)
+            ?: throw IllegalArgumentException("that zip has no diary in it, only sheets")
+
+        var sleeves = 0
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { raw ->
+                java.util.zip.ZipInputStream(raw).use { zip ->
+                    while (true) {
+                        val entry = zip.nextEntry ?: break
+                        if (entry.name.startsWith(Bundle.ART) && !entry.isDirectory) {
+                            val name = entry.name.removePrefix(Bundle.ART)
+                            if (ArtStore.accept(context, name, zip.readBytes()) != null) sleeves++
+                        }
+                        zip.closeEntry()
+                    }
+                }
+            }
+        }
+
+        if (!HistoryDb.replace(context, bytes)) {
+            throw IllegalArgumentException("that diary would not open, so nothing was changed")
+        }
+        val plays = HistoryDb.get(context).feed(limit = 1_000_000).size
+        Result(added = plays, skipped = 0, unreadable = 0, sleeves = sleeves)
+    }
+
     fun describe(result: Result): String = buildString {
         append("brought back ${result.added} ${if (result.added == 1) "play" else "plays"}")
         if (result.skipped > 0) append(", skipped ${result.skipped} already here")

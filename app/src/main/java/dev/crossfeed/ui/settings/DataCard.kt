@@ -57,6 +57,11 @@ fun DataCard() {
     var exported by remember { mutableStateOf<Export?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
+    var replacing by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val wholePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) replacing = uri
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -181,13 +186,62 @@ fun DataCard() {
                 )
             },
         )
+        Spacer(Modifier.height(Space.tight))
+        GlassButton(
+            label = if (importing) "reading…" else "replace with a backup",
+            enabled = !importing,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { wholePicker.launch(arrayOf(Bundle.MIME, "application/octet-stream", "*/*")) },
+        )
         Text(
-            "takes either: the zip, which carries its sleeves, or a bare sheet, which does " +
-                "not. plays already here are left alone either way.",
+            "the first merges: it adds what is missing and leaves what is here. the second " +
+                "restores: the diary in the zip becomes the diary on this phone, saves, genres, " +
+                "artwork and all. use that one when you move phones.",
             style = Type.footnote,
             color = glass.inkFaint,
             modifier = Modifier.padding(top = Space.tight),
         )
+        replacing?.let { uri ->
+            Spacer(Modifier.height(Space.small))
+            GlassCard(strong = true) {
+                Text("replace everything?", style = Type.section, color = glass.ink)
+                Text(
+                    "the diary on this phone is thrown away and the one in that zip takes its " +
+                        "place. there is no undo, so export first if there is anything here you " +
+                        "have not got a copy of.",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(vertical = Space.tight),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                    GlassButton(
+                        label = "replace",
+                        filled = true,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val target = uri
+                            replacing = null
+                            importing = true
+                            scope.launch {
+                                runCatching { Restore.whole(context, target) }
+                                    .onSuccess {
+                                        note = "restored ${it.added} plays and ${it.sleeves} sleeves"
+                                        reload++
+                                    }
+                                    .onFailure { note = it.message ?: "could not read that backup" }
+                                importing = false
+                            }
+                        },
+                    )
+                    GlassButton(
+                        label = "keep mine",
+                        modifier = Modifier.weight(1f),
+                        onClick = { replacing = null },
+                    )
+                }
+            }
+        }
+
         note?.let {
             Spacer(Modifier.height(Space.tight))
             Text(it, style = Type.footnote, color = glass.inkMuted)

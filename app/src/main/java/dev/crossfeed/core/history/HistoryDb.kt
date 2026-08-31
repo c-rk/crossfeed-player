@@ -430,6 +430,14 @@ class HistoryDb private constructor(context: Context) :
         }
     }
 
+    /**
+     * Pushes anything still sitting in the write ahead log into the database file itself, so a
+     * copy taken straight afterwards is the whole diary and not most of it.
+     */
+    fun checkpoint() {
+        runCatching { writableDatabase.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() } }
+    }
+
     fun remoteArt(key: String): String? {
         readableDatabase.rawQuery("SELECT url FROM remote_art WHERE key = ?", arrayOf(key)).use { cursor ->
             return if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -834,6 +842,42 @@ class HistoryDb private constructor(context: Context) :
 
         @Volatile
         private var instance: HistoryDb? = null
+
+        /** Where the diary actually lives, for the export that carries the whole thing. */
+        fun file(context: Context): java.io.File = context.getDatabasePath(NAME)
+
+        /**
+         * Swaps the diary for another one wholesale.
+         *
+         * Everything in memory is closed first and the open copy is forgotten, so the next call
+         * to get() opens whatever was just put there. The old file is kept beside the new one
+         * until the swap has worked, because a half written import is worse than no import.
+         */
+        @Synchronized
+        fun replace(context: Context, bytes: ByteArray): Boolean = runCatching {
+            val live = file(context)
+            val spare = java.io.File(live.parentFile, "$NAME.previous")
+            instance?.close()
+            instance = null
+
+            if (live.exists()) live.copyTo(spare, overwrite = true)
+            // the journal belongs to the file that is going, and would confuse the one arriving
+            for (suffix in listOf("-wal", "-shm", "-journal")) {
+                java.io.File(live.parentFile, NAME + suffix).delete()
+            }
+            live.outputStream().use { it.write(bytes) }
+
+            // opening it is the test: if it will not read, the old one goes back
+            runCatching { get(context).readableDatabase.rawQuery("SELECT COUNT(*) FROM plays", null).use { it.moveToFirst() } }
+                .getOrElse {
+                    instance?.close()
+                    instance = null
+                    if (spare.exists()) spare.copyTo(live, overwrite = true)
+                    throw it
+                }
+            spare.delete()
+            true
+        }.getOrDefault(false)
 
         fun get(context: Context): HistoryDb = instance ?: synchronized(this) {
             instance ?: HistoryDb(context).also { instance = it }

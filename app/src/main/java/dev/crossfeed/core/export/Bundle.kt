@@ -25,6 +25,7 @@ object Bundle {
     const val MIME = "application/zip"
     const val SHEET = "listening.xlsx"
     const val ART = "art/"
+    const val DB = "listening.db"
 
     /** Writes the sheet and every sleeve it refers to into one archive. */
     fun write(context: Context, out: OutputStream, sheets: List<Sheet>): Int {
@@ -51,6 +52,16 @@ object Bundle {
             zip.putNextEntry(ZipEntry(SHEET))
             Xlsx.write(NonClosing(zip), rewritten)
             zip.closeEntry()
+
+            // the diary itself, so an import can be a restore rather than a merge. it is the
+            // same data the sheet holds, in the form the app actually reads
+            val database = dev.crossfeed.core.history.HistoryDb.file(context)
+            if (database.exists()) {
+                dev.crossfeed.core.history.HistoryDb.get(context).checkpoint()
+                zip.putNextEntry(ZipEntry(DB))
+                database.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
 
             for (file in ArtStore.files(context)) {
                 if (file.name !in wanted) continue
@@ -90,6 +101,20 @@ object Bundle {
         val bytes = sheet ?: throw IllegalArgumentException("no spreadsheet inside that zip")
         val rows = bytes.inputStream().use { XlsxReader.sheet(it, "plays") }
         return rows to sleeves
+    }
+
+    /** Pulls just the diary out of an archive, for a restore rather than a merge. */
+    fun database(context: Context, uri: Uri): ByteArray? {
+        context.contentResolver.openInputStream(uri)?.use { raw ->
+            ZipInputStream(raw).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (entry.name == DB) return zip.readBytes()
+                    zip.closeEntry()
+                }
+            }
+        }
+        return null
     }
 
     /** Whether a name looks like one of ours rather than a bare spreadsheet. */
