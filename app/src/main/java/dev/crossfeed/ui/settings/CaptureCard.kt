@@ -64,25 +64,6 @@ fun CaptureCard() {
     }
 }
 
-@Composable
-fun LyricsCard() {
-    val context = LocalContext.current
-    val glass = LocalGlass.current
-    val prefs = remember { Prefs(context) }
-
-    GlassCard {
-        SectionHeader("sing along")
-        Text(
-            "sing along has a switch that puts a translation under each line. it runs on the " +
-                "phone: a language pack is downloaded the first time and works offline after " +
-                "that, and no lyric is ever sent anywhere.",
-            style = Type.footnote,
-            color = glass.inkMuted,
-            modifier = Modifier.padding(bottom = Space.tight),
-        )
-    }
-}
-
 /**
  * Packs kept ahead of time, so a song in another language does not wait on a download. Nothing is
  * fetched without being asked for: thirty megabytes each adds up quickly.

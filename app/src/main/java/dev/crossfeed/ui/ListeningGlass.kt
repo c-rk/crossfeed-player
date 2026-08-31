@@ -45,6 +45,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.crossfeed.core.Router
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.history.Dashboard
 import dev.crossfeed.core.history.Days
@@ -61,6 +63,7 @@ import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -82,6 +85,8 @@ fun ListeningScreen() {
     var grid by remember { mutableStateOf(prefs.diaryGrid) }
     var showLyrics by remember { mutableStateOf(false) }
     var showCurate by remember { mutableStateOf(false) }
+    var open by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
 
     // once a day, fold anything reported twice into the one listen it was, then recount. doing
     // it here rather than on every write keeps the capture path cheap
@@ -102,8 +107,10 @@ fun ListeningScreen() {
 
     val deck = rememberDeck()
 
+    val plays = data?.feed.orEmpty()
+
     LazyVerticalGrid(
-        columns = GridCells.Fixed(if (grid) 3 else 1),
+        columns = GridCells.Fixed(if (grid && open) 3 else 1),
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = Space.large,
@@ -134,17 +141,38 @@ fun ListeningScreen() {
                     Modifier.fillMaxWidth().padding(top = Space.tight, bottom = Space.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("the day so far", style = Type.section, color = glass.t1, modifier = Modifier.weight(1f))
-                    ViewToggle(grid) {
-                        grid = it
-                        prefs.diaryGrid = it
+                    // the heading is the handle: the day folds away when you want the charts
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .clip(Shapes.chip)
+                            .clickable { open = !open }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("the day so far", style = Type.section, color = glass.t1)
+                        Spacer(Modifier.width(Space.tight))
+                        Text(
+                            if (open) "\u2013" else "+",
+                            style = Type.section,
+                            color = glass.t3,
+                        )
+                        plays.size.takeIf { it > 0 && !open }?.let {
+                            Spacer(Modifier.width(Space.tight))
+                            Text("$it", style = Type.stamp, color = glass.t3)
+                        }
+                    }
+                    if (open) {
+                        ViewToggle(grid) {
+                            grid = it
+                            prefs.diaryGrid = it
+                        }
                     }
                 }
             }
         }
 
-        val plays = data?.feed.orEmpty()
-        if (plays.isEmpty()) {
+        if (open && plays.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     "nothing yet in this stretch.",
@@ -155,8 +183,11 @@ fun ListeningScreen() {
             }
         }
 
-        items(plays, key = { it.id }) { play ->
-            if (grid) PlayTile(play) else PlayRow(play)
+        if (open) {
+            items(plays, key = { it.id }) { play ->
+                val onOpen = { scope.launch { Router.play(context, play.title, play.artist) }; Unit }
+                if (grid) PlayTile(play, onOpen) else PlayRow(play, onOpen)
+            }
         }
 
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -462,9 +493,9 @@ private fun LyricStrip(deck: Deck, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun PlayRow(play: Play) {
+private fun PlayRow(play: Play, onOpen: () -> Unit) {
     val glass = LocalGlass.current
-    Column {
+    Column(Modifier.clickable(onClick = onOpen)) {
         RowRule()
         Row(
             Modifier.fillMaxWidth().padding(vertical = 7.dp),
@@ -502,9 +533,9 @@ private fun PlayRow(play: Play) {
 }
 
 @Composable
-private fun PlayTile(play: Play) {
+private fun PlayTile(play: Play, onOpen: () -> Unit) {
     val glass = LocalGlass.current
-    Column {
+    Column(Modifier.clickable(onClick = onOpen)) {
         Box {
             Sleeve(play.title, play.artwork, 0.dp, Shapes.artSmall, fill = true)
             Text(
