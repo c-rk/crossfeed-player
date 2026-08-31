@@ -106,7 +106,7 @@ fun ListeningLegacy() {
         if (uri != null) {
             importing = true
             scope.launch {
-                runCatching { Restore.fromFile(context, uri, null) }
+                runCatching { Restore.fromFile(context, uri) }
                     .onSuccess {
                         exportNote = Restore.describe(it)
                         reload++

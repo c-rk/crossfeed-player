@@ -67,8 +67,7 @@ fun DataCard() {
         if (uri != null) {
             importing = true
             scope.launch {
-                val name = fileName(context, uri)
-                runCatching { Restore.fromFile(context, uri, name) }
+                runCatching { Restore.fromFile(context, uri) }
                     .onSuccess {
                         note = Restore.describe(it)
                         reload++

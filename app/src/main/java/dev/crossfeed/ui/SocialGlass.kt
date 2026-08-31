@@ -37,6 +37,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Prefs
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.ImeAction
+import dev.crossfeed.core.net.Circle
+import dev.crossfeed.core.net.Person
 import dev.crossfeed.core.net.Account
 import dev.crossfeed.core.net.Alerts
 import dev.crossfeed.core.net.Live
@@ -87,7 +96,7 @@ fun SocialScreen() {
     var posts by remember { mutableStateOf(emptyList<Post>()) }
     var live by remember { mutableStateOf(emptyList<Live>()) }
     var alerts by remember { mutableStateOf(Alerts(emptyList(), 0, 0)) }
-    var friends by remember { mutableStateOf(0) }
+    var circle by remember { mutableStateOf(Circle(emptyList(), emptyList(), emptyList())) }
     var grid by remember { mutableStateOf(prefs.auxGrid) }
     var trayOpen by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<String?>(null) }
@@ -97,7 +106,7 @@ fun SocialScreen() {
         posts = runCatching { Social.feed(context) }.getOrDefault(emptyList())
         live = runCatching { Social.live(context) }.getOrDefault(emptyList())
         alerts = runCatching { Social.alerts(context) }.getOrDefault(alerts)
-        friends = runCatching { Social.circle(context).accepted.size }.getOrDefault(0)
+        circle = runCatching { Social.circle(context) }.getOrDefault(circle)
     }
 
     fun react(post: Post, reaction: Reaction) {
@@ -132,7 +141,7 @@ fun SocialScreen() {
                     Column(Modifier.weight(1f)) {
                         Text("the aux", style = Type.page, color = glass.t1)
                         Text(
-                            "@" + account.handle.orEmpty() + " · " + people(friends),
+                            "@" + account.handle.orEmpty() + " · " + people(circle.accepted.size),
                             style = Type.note,
                             color = glass.t3,
                         )
@@ -151,6 +160,25 @@ fun SocialScreen() {
                     Listening(live)
                     Spacer(Modifier.height(Space.small))
                 }
+
+                People(
+                    circle = circle,
+                    onAdd = { handle ->
+                        scope.launch {
+                            note = runCatching { Social.request(context, handle = handle) }
+                                .map { "asked @" + handle.removePrefix("@") }
+                                .getOrElse { it.message ?: "could not ask for that handle" }
+                            circle = runCatching { Social.circle(context) }.getOrDefault(circle)
+                        }
+                    },
+                    onRespond = { person, accept ->
+                        scope.launch {
+                            runCatching { Social.respond(context, person.id, accept) }
+                            circle = runCatching { Social.circle(context) }.getOrDefault(circle)
+                        }
+                    },
+                )
+                Spacer(Modifier.height(Space.small))
 
                 note?.let {
                     Text(it, style = Type.note, color = glass.sage, modifier = Modifier.padding(bottom = Space.tight))
@@ -461,5 +489,119 @@ private fun age(at: Long): String {
         minutes < 60 * 24 -> "${minutes / 60}h"
         minutes < 60 * 48 -> "yesterday"
         else -> "${minutes / (60 * 24)}d"
+    }
+}
+
+
+/**
+ * The people on your aux, and the way to add one.
+ *
+ * Handles rather than a directory: there is nobody to browse and nothing to discover here, which
+ * is the point. You add someone because you already know them.
+ */
+@Composable
+private fun People(
+    circle: Circle,
+    onAdd: (String) -> Unit,
+    onRespond: (Person, Boolean) -> Unit,
+) {
+    val glass = LocalGlass.current
+    var handle by remember { mutableStateOf("") }
+
+    GlassCard(padding = Space.medium) {
+        Text("your people", style = Type.section, color = glass.t1)
+        Spacer(Modifier.height(Space.small))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = handle,
+                onValueChange = { handle = it.trimStart().take(30) },
+                singleLine = true,
+                textStyle = Type.rowTitle.copy(color = glass.t1),
+                cursorBrush = SolidColor(glass.accent),
+                keyboardOptions = KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (handle.isNotBlank()) {
+                        onAdd(handle.trim())
+                        handle = ""
+                    }
+                }),
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(Shapes.chip)
+                    .background(glass.p1)
+                    .border(1.dp, glass.bd, Shapes.chip)
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                decorationBox = { field ->
+                    if (handle.isEmpty()) {
+                        Text("add by handle", style = Type.rowTitle, color = glass.t3)
+                    }
+                    field()
+                },
+            )
+            Spacer(Modifier.width(Space.tight))
+            GlassButton(
+                label = "add",
+                filled = true,
+                compact = true,
+                enabled = handle.isNotBlank(),
+                onClick = {
+                    onAdd(handle.trim())
+                    handle = ""
+                },
+            )
+        }
+
+        for (person in circle.incoming) {
+            Spacer(Modifier.height(Space.small))
+            RowRule()
+            Row(
+                Modifier.fillMaxWidth().padding(top = Space.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("@" + person.handle, style = Type.rowTitle, color = glass.t1)
+                    Text("wants on your aux", style = Type.meta, color = glass.t3)
+                }
+                GlassButton(label = "let in", filled = true, compact = true) { onRespond(person, true) }
+                Spacer(Modifier.width(Space.tight))
+                GlassButton(label = "no", compact = true) { onRespond(person, false) }
+            }
+        }
+
+        for (person in circle.outgoing) {
+            Spacer(Modifier.height(Space.small))
+            RowRule()
+            Row(
+                Modifier.fillMaxWidth().padding(top = Space.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("@" + person.handle, style = Type.rowTitle, color = glass.t1, modifier = Modifier.weight(1f))
+                Text("asked", style = Type.metaStrong, color = glass.t3)
+            }
+        }
+
+        if (circle.accepted.isNotEmpty()) {
+            Spacer(Modifier.height(Space.small))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(Space.tight),
+            ) {
+                for (person in circle.accepted) {
+                    Box(
+                        Modifier
+                            .clip(Shapes.chip)
+                            .background(glass.sageTint)
+                            .border(1.dp, glass.sageBorder, Shapes.chip)
+                            .padding(horizontal = 11.dp, vertical = 6.dp),
+                    ) {
+                        Text("@" + person.handle, style = Type.chip, color = glass.sage, maxLines = 1)
+                    }
+                }
+            }
+        }
     }
 }

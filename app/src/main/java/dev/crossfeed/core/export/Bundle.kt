@@ -87,7 +87,7 @@ object Bundle {
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     when {
-                        entry.name.endsWith(".xlsx") -> sheet = zip.readBytes()
+                        entry.name == SHEET -> sheet = zip.readBytes()
                         entry.name.startsWith(ART) && !entry.isDirectory -> {
                             val name = entry.name.removePrefix(ART)
                             if (ArtStore.accept(context, name, zip.readBytes()) != null) sleeves++
@@ -117,8 +117,28 @@ object Bundle {
         return null
     }
 
-    /** Whether a name looks like one of ours rather than a bare spreadsheet. */
-    fun looksLikeBundle(name: String?): Boolean = name.orEmpty().endsWith(".zip", ignoreCase = true)
+    /**
+     * Whether this is one of ours, decided by looking inside rather than at the name.
+     *
+     * A spreadsheet is a zip too, so neither the extension nor the first four bytes settle it. The
+     * only honest answer comes from the entry names: ours holds a diary, a sheet under a name we
+     * chose, or a folder of sleeves. Anything else is a plain spreadsheet and is read as one.
+     */
+    fun isBundle(context: Context, uri: Uri): Boolean = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { raw ->
+            ZipInputStream(raw).use { zip ->
+                var seen = 0
+                while (seen < 40) {
+                    val entry = zip.nextEntry ?: break
+                    seen++
+                    val name = entry.name
+                    if (name == DB || name == SHEET || name.startsWith(ART)) return@use true
+                    zip.closeEntry()
+                }
+                false
+            }
+        } ?: false
+    }.getOrDefault(false)
 
     /** The zip stream must outlive each entry, so the writer inside it may not close it. */
     private class NonClosing(private val inner: OutputStream) : OutputStream() {

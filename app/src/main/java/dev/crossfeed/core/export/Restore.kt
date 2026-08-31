@@ -19,26 +19,16 @@ object Restore {
 
     private const val NEAR_MS = 90_000L
 
-    /** Files arrive without a name often enough to be worth asking the bytes instead. */
-    private fun peeksAsZip(context: Context, uri: Uri): Boolean = runCatching {
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            val head = ByteArray(4)
-            if (stream.read(head) < 4) return@use false
-            // every zip starts PK\u0003\u0004, and an xlsx is a zip too, so the name decides
-            // first and this is only the fallback when there is not one
-            head[0] == 0x50.toByte() && head[1] == 0x4B.toByte()
-        } ?: false
-    }.getOrDefault(false)
 
     /**
      * Reads back either a bare spreadsheet or a whole bundle.
      *
      * A bundle carries its sleeves, so they are put back on disk first and the paths in the sheet
-     * are pointed at where they now live. A bare sheet still works, it just arrives without
-     * pictures, which is what it always did.
+     * are pointed at where they now live. A bare spreadsheet still works and always will, since
+     * that is the file most people will have; it simply arrives without pictures.
      */
-    suspend fun fromFile(context: Context, uri: Uri, name: String?): Result = withContext(Dispatchers.IO) {
-        val zipped = Bundle.looksLikeBundle(name) || peeksAsZip(context, uri)
+    suspend fun fromFile(context: Context, uri: Uri): Result = withContext(Dispatchers.IO) {
+        val zipped = Bundle.isBundle(context, uri)
         var sleeves = 0
         val rows = if (zipped) {
             val (sheet, saved) = Bundle.read(context, uri)
