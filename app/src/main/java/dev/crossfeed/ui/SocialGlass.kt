@@ -50,7 +50,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
+import dev.crossfeed.core.Router
 import dev.crossfeed.core.net.Circle
+import dev.crossfeed.core.net.Dm
 import dev.crossfeed.core.net.Person
 import dev.crossfeed.core.net.Account
 import dev.crossfeed.core.net.Alerts
@@ -133,6 +135,8 @@ fun SocialScreen() {
     var picking by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
     var sharing by remember { mutableStateOf(prefs.sharePlays) }
+    var sendTo by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    var choosing by remember { mutableStateOf(false) }
 
     // while the page is open it keeps itself current, so a friend accepting, a song starting
     // somewhere else, or a reaction arriving turns up on its own rather than on a swipe
@@ -145,7 +149,8 @@ fun SocialScreen() {
 
     fun react(post: Post, reaction: Reaction) {
         if (reaction.label == "reply") {
-            note = "song replies need the other half of this, which is not live yet"
+            // a reply hands a song back rather than a face, so it asks which song
+            sendTo = post.handle to post.id
             picking = null
             return
         }
@@ -160,6 +165,26 @@ fun SocialScreen() {
                 note = "kept ${post.title}"
             }
         }
+    }
+
+    sendTo?.let { (handle, postId) ->
+        SendSong(
+            to = handle,
+            replyTo = postId,
+            onSent = { note = it },
+            onDismiss = { sendTo = null },
+        )
+    }
+
+    if (choosing) {
+        PickPerson(
+            handles = circle.accepted.map { it.handle },
+            onPick = {
+                choosing = false
+                sendTo = it to null
+            },
+            onDismiss = { choosing = false },
+        )
     }
 
     LazyVerticalGrid(
@@ -180,7 +205,7 @@ fun SocialScreen() {
                             color = glass.t3,
                         )
                     }
-                    UnreadCircle(alerts.unread) {
+                    UnreadCircle(alerts.unread + Aux.dms.count { it.fresh }) {
                         trayOpen = !trayOpen
                         if (trayOpen) {
                             Aux.seen()
@@ -190,7 +215,16 @@ fun SocialScreen() {
                 }
 
                 Spacer(Modifier.height(Space.small))
-                Rise(trayOpen) { Tray(alerts) { trayOpen = false } }
+                Rise(trayOpen) {
+                    Tray(
+                        alerts = alerts,
+                        dms = Aux.dms,
+                        onPlay = { dm ->
+                            scope.launch { Router.play(context, dm.title, dm.artist) }
+                        },
+                        onClear = { trayOpen = false },
+                    )
+                }
                 if (trayOpen) Spacer(Modifier.height(Space.small))
 
                 if (live.isNotEmpty()) {
@@ -263,6 +297,17 @@ fun SocialScreen() {
                 ) {
                     Text("the feed", style = Type.section, color = glass.t1)
                     Spacer(Modifier.width(Space.tight))
+                    Box(
+                        Modifier
+                            .clip(Shapes.chip)
+                            .background(glass.sageTint)
+                            .border(1.dp, glass.sageBorder, Shapes.chip)
+                            .clickable { choosing = true }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    ) {
+                        Text("send a song", style = Type.metaStrong, color = glass.sage, maxLines = 1)
+                    }
+                    Spacer(Modifier.width(Space.tight))
                     Text(today(posts), style = Type.stamp, color = glass.t3, modifier = Modifier.weight(1f))
                     ViewToggle(grid) {
                         grid = it
@@ -328,7 +373,7 @@ private fun UnreadCircle(count: Int, onClick: () -> Unit) {
 
 /** Notifications, opened where they are. Never a screen, never a dialog. */
 @Composable
-private fun Tray(alerts: Alerts, onClear: () -> Unit) {
+private fun Tray(alerts: Alerts, dms: List<Dm>, onPlay: (Dm) -> Unit, onClear: () -> Unit) {
     val glass = LocalGlass.current
     GlassCard(padding = 15.dp) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -340,9 +385,38 @@ private fun Tray(alerts: Alerts, onClear: () -> Unit) {
                 modifier = Modifier.clip(Shapes.chip).clickable(onClick = onClear).padding(4.dp),
             )
         }
-        if (alerts.items.isEmpty()) {
+        if (alerts.items.isEmpty() && dms.isEmpty()) {
             Spacer(Modifier.height(Space.small))
             Text("nothing waiting.", style = Type.note, color = glass.t3)
+        }
+
+        // songs handed to you sit above reactions, because somebody chose them for you
+        for (dm in dms.take(6)) {
+            Spacer(Modifier.height(Space.small))
+            RowRule()
+            Row(
+                Modifier.fillMaxWidth().padding(top = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Sleeve(dm.title, dm.art, 34.dp, CircleShape)
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "@" + dm.handle + " sent you " + dm.title,
+                        style = Type.chip,
+                        color = glass.t2,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        listOfNotNull(dm.artist, age(dm.at)).joinToString(" · "),
+                        style = Type.meta,
+                        color = glass.t3,
+                    )
+                }
+                Spacer(Modifier.width(Space.tight))
+                PlayCircle(30.dp) { onPlay(dm) }
+            }
         }
         for (alert in alerts.items.take(6)) {
             Spacer(Modifier.height(Space.small))

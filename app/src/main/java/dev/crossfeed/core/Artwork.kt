@@ -66,12 +66,30 @@ object Artwork {
         }.getOrNull()
     }
 
-    private fun fromNetwork(url: String): Bitmap? {
+    /**
+     * Fetches a sleeve, and tries again before giving up.
+     *
+     * A feed asks for a dozen of these at once over whatever signal is going, and a single timeout
+     * used to mean a letter where a record should be, for as long as that row stayed on screen.
+     * The timeouts are longer than they were and one stumble is forgiven, because the cost of
+     * asking twice is a second and the cost of not asking is a blank square.
+     */
+    private fun fromNetwork(url: String, tries: Int = 2): Bitmap? {
+        for (attempt in 1..tries) {
+            fetch(url)?.let { return it }
+            if (attempt < tries) Thread.sleep(400)
+        }
+        return null
+    }
+
+    private fun fetch(url: String): Bitmap? {
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 4000
-                readTimeout = 5000
+                connectTimeout = 8000
+                readTimeout = 12000
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "crossfeed")
             }
             if (conn.responseCode !in 200..299) return null
             if (conn.contentLength > MAX_ART_BYTES) return null

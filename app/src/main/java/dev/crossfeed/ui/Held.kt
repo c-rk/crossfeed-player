@@ -10,6 +10,7 @@ import dev.crossfeed.core.history.Stats
 import dev.crossfeed.core.net.Alerts
 import dev.crossfeed.core.net.ApiError
 import dev.crossfeed.core.net.Circle
+import dev.crossfeed.core.net.Dm
 import dev.crossfeed.core.net.Live
 import dev.crossfeed.core.net.Post
 import dev.crossfeed.core.net.Social
@@ -63,6 +64,9 @@ object Aux {
     var alerts by mutableStateOf(Alerts(emptyList(), 0, 0))
         private set
 
+    var dms by mutableStateOf<List<Dm>>(emptyList())
+        private set
+
     var circle by mutableStateOf(Circle(emptyList(), emptyList(), emptyList()))
         private set
 
@@ -84,16 +88,19 @@ object Aux {
         val playing = async { runCatching { Social.live(context) } }
         val tray = async { runCatching { Social.alerts(context) } }
         val people = async { runCatching { Social.circle(context) } }
+        val sent = async { runCatching { Social.dms(context) } }
 
         val gotFeed = feed.await()
         val gotLive = playing.await()
         val gotTray = tray.await()
         val gotPeople = people.await()
+        val gotDms = sent.await()
 
         gotFeed.getOrNull()?.let { posts = it }
         gotLive.getOrNull()?.let { live = it }
         gotTray.getOrNull()?.let { alerts = it }
         gotPeople.getOrNull()?.let { circle = it }
+        gotDms.getOrNull()?.let { dms = it }
 
         // whatever went wrong, say the thing that went wrong. a generic line here was hiding
         // the difference between no friends, no signal, and not being signed in at all
@@ -127,6 +134,7 @@ object Aux {
         live = emptyList()
         alerts = Alerts(emptyList(), 0, 0)
         circle = Circle(emptyList(), emptyList(), emptyList())
+        dms = emptyList()
         loadedAt = 0
     }
 }

@@ -600,8 +600,13 @@ fun Sleeve(
     var art by remember(artwork) { mutableStateOf<ImageBitmap?>(null) }
 
     LaunchedEffect(artwork) {
-        art = artwork?.takeIf { it.isNotBlank() }?.let { url ->
-            runCatching { Artwork.loadUrl(context, url)?.asImageBitmap() }.getOrNull()
+        val url = artwork?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        art = runCatching { Artwork.loadUrl(context, url)?.asImageBitmap() }.getOrNull()
+        // a row that scrolled into view mid outage should not stay a letter for ever. one more
+        // go, a few seconds later, and then it is left alone
+        if (art == null) {
+            delay(4_000)
+            art = runCatching { Artwork.loadUrl(context, url)?.asImageBitmap() }.getOrNull()
         }
     }
 
