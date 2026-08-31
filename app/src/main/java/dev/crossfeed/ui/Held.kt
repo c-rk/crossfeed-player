@@ -90,7 +90,15 @@ object Aux {
         val gotTray = tray.await()
         val gotPeople = people.await()
 
-        gotFeed.getOrNull()?.let { posts = it }
+        gotFeed.getOrNull()?.let { fresh ->
+            posts = if (inFlight.isEmpty()) {
+                fresh
+            } else {
+                // anything still being written keeps what this phone believes about it
+                val mine = posts.associateBy { it.id }
+                fresh.map { post -> if (post.id in inFlight) mine[post.id] ?: post else post }
+            }
+        }
         gotLive.getOrNull()?.let { live = it }
         gotTray.getOrNull()?.let { alerts = it }
         gotPeople.getOrNull()?.let { circle = it }
@@ -113,9 +121,24 @@ object Aux {
         }
     }
 
+    /**
+     * Reactions the phone has made but the server has not confirmed yet.
+     *
+     * The feed refetches every few seconds, and a refresh that landed between a tap and the write
+     * reaching the server used to wipe the tap off the screen: you pressed a thing, it lit up, and
+     * a moment later it went out again for no reason you could see. What is still in flight is
+     * held back from being overwritten until the write finishes.
+     */
+    private val inFlight = mutableSetOf<String>()
+
     /** Applied straight away so a tap does not wait on a round trip to look like it worked. */
-    fun replace(updated: List<Post>) {
+    fun replace(updated: List<Post>, pending: String? = null) {
+        pending?.let { inFlight.add(it) }
         posts = updated
+    }
+
+    fun settled(postId: String) {
+        inFlight.remove(postId)
     }
 
     fun seen() {

@@ -146,10 +146,14 @@ fun SocialScreen() {
 
     fun react(post: Post, reaction: Reaction) {
         val next = if (post.mine == reaction.emoji) null else reaction.emoji
-        Aux.replace(posts.map { if (it.id == post.id) it.withReaction(next) else it })
+        Aux.replace(
+            posts.map { if (it.id == post.id) it.withReaction(next) else it },
+            pending = post.id,
+        )
         picking = null
         scope.launch {
             runCatching { Social.react(context, post.id, next.orEmpty()) }
+            Aux.settled(post.id)
             // keeping it does what it says as well as saying it
             if (reaction.label == "keeping it" && next != null) {
                 runCatching { Social.save(context, post) }
@@ -484,7 +488,7 @@ private fun FeedRow(
             Spacer(Modifier.width(Space.tight))
             Bubbles(post)
         }
-        Held(holding, post, onPick, onLet)
+        Held(holding, post, labels = true, onPick = onPick, onLet = onLet)
     }
 }
 
@@ -520,7 +524,7 @@ private fun FeedTile(
         )
         Spacer(Modifier.height(7.dp))
         Bubbles(post)
-        Held(holding, post, onPick, onLet)
+        Held(holding, post, labels = false, onPick = onPick, onLet = onLet)
     }
 }
 
@@ -560,7 +564,13 @@ private fun Bubbles(post: Post) {
  * belong to.
  */
 @Composable
-private fun Held(open: Boolean, post: Post, onPick: (Reaction) -> Unit, onLet: () -> Unit) {
+private fun Held(
+    open: Boolean,
+    post: Post,
+    labels: Boolean,
+    onPick: (Reaction) -> Unit,
+    onLet: () -> Unit,
+) {
     val glass = LocalGlass.current
     Rise(open) {
         Row(
@@ -585,12 +595,14 @@ private fun Held(open: Boolean, post: Post, onPick: (Reaction) -> Unit, onLet: (
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(reaction.emoji, style = Type.chip)
-                    Text(
-                        reaction.label,
-                        style = Type.metaStrong,
-                        color = if (mine) glass.onAccent else glass.t3,
-                        maxLines = 1,
-                    )
+                    if (labels) {
+                        Text(
+                            reaction.label,
+                            style = Type.metaStrong,
+                            color = if (mine) glass.onAccent else glass.t3,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
             Box(
