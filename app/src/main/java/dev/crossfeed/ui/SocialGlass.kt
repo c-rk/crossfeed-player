@@ -163,11 +163,11 @@ fun SocialScreen() {
     }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(if (grid) 2 else 1),
+        columns = GridCells.Fixed(if (grid) 3 else 1),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = Space.large, end = Space.large, top = Space.small, bottom = bottomRoom()),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(if (grid) 10.dp else 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(if (grid) 8.dp else 0.dp),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
@@ -298,7 +298,7 @@ fun SocialScreen() {
 
         items(posts, key = { it.id }) { post ->
             val holding = picking == post.id
-            val onHold = { picking = post.id }
+            val onHold = { picking = if (picking == post.id) null else post.id }
             // the quick one: two taps says the thing most people want to say, without a menu
             val onLove = { react(post, reactions.first()) }
             // a tap is the plain thing a tap should be: hear it, wherever your route points
@@ -506,23 +506,23 @@ private fun FeedTile(
     val glass = LocalGlass.current
     GlassCard(
         shape = Shapes.grid,
-        padding = 10.dp,
+        padding = 7.dp,
         modifier = Modifier.combinedClickable(
             onClick = onOpen,
             onDoubleClick = onLove,
             onLongClick = onHold,
         ),
     ) {
-        Sleeve(post.title, post.art, 0.dp, Shapes.artRow, fill = true)
-        Spacer(Modifier.height(7.dp))
-        Text(post.title, style = Type.label, color = glass.t1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Sleeve(post.title, post.art, 0.dp, Shapes.artSmall, fill = true)
+        Spacer(Modifier.height(5.dp))
+        Text(post.title, style = Type.metaStrong, color = glass.t1, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
             "@" + post.handle + " · " + age(post.updatedAt),
             style = Type.meta,
             color = glass.t3,
             maxLines = 1,
         )
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(5.dp))
         Bubbles(post)
         Held(holding, post, labels = false, onPick = onPick, onLet = onLet)
     }
@@ -579,8 +579,8 @@ private fun Held(
                 .clip(Shapes.chip)
                 .background(glass.p3)
                 .border(1.dp, glass.bd, Shapes.chip)
-                .padding(horizontal = 6.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(horizontal = if (labels) 6.dp else 3.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (labels) 4.dp else 1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             for (reaction in reactions) {
@@ -590,7 +590,10 @@ private fun Held(
                         .clip(Shapes.chip)
                         .background(if (mine) glass.accent else Color.Transparent)
                         .clickable { onPick(reaction) }
-                        .padding(horizontal = 9.dp, vertical = 6.dp),
+                        .padding(
+                            horizontal = if (labels) 9.dp else 7.dp,
+                            vertical = if (labels) 6.dp else 5.dp,
+                        ),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
@@ -605,13 +608,15 @@ private fun Held(
                     }
                 }
             }
-            Box(
-                Modifier
-                    .clip(Shapes.chip)
-                    .clickable(onClick = onLet)
-                    .padding(horizontal = 7.dp, vertical = 6.dp),
-            ) {
-                Mark(Glyph.CLOSE, side = 10.dp, tint = glass.t3)
+            if (labels) {
+                Box(
+                    Modifier
+                        .clip(Shapes.chip)
+                        .clickable(onClick = onLet)
+                        .padding(horizontal = 7.dp, vertical = 6.dp),
+                ) {
+                    Mark(Glyph.CLOSE, side = 10.dp, tint = glass.t3)
+                }
             }
         }
     }
