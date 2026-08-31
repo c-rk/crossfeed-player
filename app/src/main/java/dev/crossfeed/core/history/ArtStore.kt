@@ -38,6 +38,27 @@ object ArtStore {
         "file://${file.absolutePath}"
     }.getOrNull()
 
+    /** Where the sleeves live, for anything that needs to read them as files. */
+    fun folder(context: Context): File = dir(context)
+
+    fun files(context: Context): List<File> = dir(context).listFiles()?.toList().orEmpty()
+
+    /** The name a stored sleeve goes by, or nothing if this artwork is not one of ours. */
+    fun nameOf(artwork: String?): String? {
+        val path = artwork?.removePrefix("file://") ?: return null
+        if (!path.contains("/art/")) return null
+        return path.substringAfterLast('/').takeIf { it.isNotBlank() }
+    }
+
+    /** Puts a sleeve back on disk under the name it had, and says where it now is. */
+    fun accept(context: Context, name: String, bytes: ByteArray): String? = runCatching {
+        val clean = name.substringAfterLast('/').substringAfterLast('\\')
+        if (clean.isBlank()) return@runCatching null
+        val file = File(dir(context), clean)
+        if (!file.exists()) file.outputStream().use { it.write(bytes) }
+        "file://" + file.absolutePath
+    }.getOrNull()
+
     fun sizeBytes(context: Context): Long =
         dir(context).listFiles()?.sumOf { it.length() } ?: 0L
 

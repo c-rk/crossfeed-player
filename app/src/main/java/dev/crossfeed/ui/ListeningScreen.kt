@@ -106,7 +106,7 @@ fun ListeningLegacy() {
         if (uri != null) {
             importing = true
             scope.launch {
-                runCatching { Restore.fromXlsx(context, uri) }
+                runCatching { Restore.fromFile(context, uri, null) }
                     .onSuccess {
                         exportNote = Restore.describe(it)
                         reload++

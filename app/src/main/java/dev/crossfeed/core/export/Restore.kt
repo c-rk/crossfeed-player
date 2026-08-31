@@ -2,6 +2,7 @@ package dev.crossfeed.core.export
 
 import android.content.Context
 import android.net.Uri
+import dev.crossfeed.core.history.ArtStore
 import dev.crossfeed.core.history.HistoryDb
 import dev.crossfeed.core.history.Play
 import java.text.SimpleDateFormat
@@ -12,16 +13,42 @@ import kotlinx.coroutines.withContext
 
 object Restore {
 
-    data class Result(val added: Int, val skipped: Int, val unreadable: Int) {
+    data class Result(val added: Int, val skipped: Int, val unreadable: Int, val sleeves: Int = 0) {
         val rows get() = added + skipped + unreadable
     }
 
     private const val NEAR_MS = 90_000L
 
-    suspend fun fromXlsx(context: Context, uri: Uri): Result = withContext(Dispatchers.IO) {
-        val rows = context.contentResolver.openInputStream(uri)
-            ?.use { XlsxReader.sheet(it, "plays") }
-            ?: throw IllegalArgumentException("cannot open that file")
+    /** Files arrive without a name often enough to be worth asking the bytes instead. */
+    private fun peeksAsZip(context: Context, uri: Uri): Boolean = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            val head = ByteArray(4)
+            if (stream.read(head) < 4) return@use false
+            // every zip starts PK\u0003\u0004, and an xlsx is a zip too, so the name decides
+            // first and this is only the fallback when there is not one
+            head[0] == 0x50.toByte() && head[1] == 0x4B.toByte()
+        } ?: false
+    }.getOrDefault(false)
+
+    /**
+     * Reads back either a bare spreadsheet or a whole bundle.
+     *
+     * A bundle carries its sleeves, so they are put back on disk first and the paths in the sheet
+     * are pointed at where they now live. A bare sheet still works, it just arrives without
+     * pictures, which is what it always did.
+     */
+    suspend fun fromFile(context: Context, uri: Uri, name: String?): Result = withContext(Dispatchers.IO) {
+        val zipped = Bundle.looksLikeBundle(name) || peeksAsZip(context, uri)
+        var sleeves = 0
+        val rows = if (zipped) {
+            val (sheet, saved) = Bundle.read(context, uri)
+            sleeves = saved
+            sheet
+        } else {
+            context.contentResolver.openInputStream(uri)
+                ?.use { XlsxReader.sheet(it, "plays") }
+                ?: throw IllegalArgumentException("cannot open that file")
+        }
         if (rows.size < 2) throw IllegalArgumentException("no plays sheet in that file")
 
         val header = rows.first().map { it?.trim()?.lowercase().orEmpty() }
@@ -78,7 +105,7 @@ object Restore {
                     source = app,
                     startedAt = startedAt,
                     genre = kind,
-                    artwork = cell(row, artwork),
+                    artwork = cell(row, artwork)?.let { landed(context, it) },
                 ),
             )
             db.record(name, who, cell(row, album), app, startedAt, listenedMs, newPlay = true)
@@ -91,12 +118,20 @@ object Restore {
         // folded together before any of it is counted
         db.tidy()
 
-        Result(added, skipped, unreadable)
+        Result(added, skipped, unreadable, sleeves)
+    }
+
+    /** A sleeve carried in a bundle now lives in the art folder, so that is where it points. */
+    private fun landed(context: Context, artwork: String): String {
+        if (!artwork.startsWith(Bundle.ART)) return artwork
+        val name = artwork.removePrefix(Bundle.ART)
+        return "file://" + java.io.File(ArtStore.folder(context), name).absolutePath
     }
 
     fun describe(result: Result): String = buildString {
         append("brought back ${result.added} ${if (result.added == 1) "play" else "plays"}")
         if (result.skipped > 0) append(", skipped ${result.skipped} already here")
         if (result.unreadable > 0) append(", ${result.unreadable} unreadable")
+        if (result.sleeves > 0) append(", ${result.sleeves} sleeves")
     }
 }

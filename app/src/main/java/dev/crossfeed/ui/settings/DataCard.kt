@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.export.Export
+import dev.crossfeed.core.export.Bundle
 import dev.crossfeed.core.export.Restore
 import dev.crossfeed.core.export.Workbook
 import dev.crossfeed.core.history.HistoryDb
@@ -61,7 +62,8 @@ fun DataCard() {
         if (uri != null) {
             importing = true
             scope.launch {
-                runCatching { Restore.fromXlsx(context, uri) }
+                val name = fileName(context, uri)
+                runCatching { Restore.fromFile(context, uri, name) }
                     .onSuccess {
                         note = Restore.describe(it)
                         reload++
@@ -117,15 +119,33 @@ fun DataCard() {
         SectionHeader("export")
         Text(
             "every play, every total, every finish rate, written to a spreadsheet you own. " +
-                "eleven sheets, saved to downloads.",
+                "eleven sheets, saved to downloads. the zip carries the artwork with them, so " +
+                    "the diary opens whole on another phone.",
             style = Type.footnote,
             color = glass.inkMuted,
         )
         Spacer(Modifier.height(Space.small))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
             GlassButton(
-                label = if (exporting) "writing…" else "export .xlsx",
+                label = if (exporting) "writing…" else "everything",
                 filled = true,
+                enabled = !exporting,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    exporting = true
+                    scope.launch {
+                        runCatching { Workbook.bundle(context) }
+                            .onSuccess {
+                                exported = it
+                                note = "exported ${it.path} · ${Stats.bytes(it.bytes)}"
+                            }
+                            .onFailure { note = "could not write the file" }
+                        exporting = false
+                    }
+                },
+            )
+            GlassButton(
+                label = "sheet only",
                 enabled = !exporting,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -141,23 +161,29 @@ fun DataCard() {
                     }
                 },
             )
-            exported?.let { file ->
-                GlassButton(
-                    label = "send",
-                    modifier = Modifier.weight(1f),
-                    onClick = { Workbook.share(context, file) },
-                )
-            }
+        }
+        exported?.let { file ->
+            Spacer(Modifier.height(Space.small))
+            GlassButton(
+                label = "send " + file.name.substringAfterLast('.'),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { Workbook.share(context, file) },
+            )
         }
         Spacer(Modifier.height(Space.small))
         GlassButton(
-            label = if (importing) "reading…" else "import .xlsx",
+            label = if (importing) "reading…" else "bring a diary back",
             enabled = !importing,
             modifier = Modifier.fillMaxWidth(),
-            onClick = { picker.launch(arrayOf(Workbook.MIME, "application/octet-stream", "*/*")) },
+            onClick = {
+                picker.launch(
+                    arrayOf(Bundle.MIME, Workbook.MIME, "application/octet-stream", "*/*"),
+                )
+            },
         )
         Text(
-            "brings a previous export back into this phone. plays already here are left alone.",
+            "takes either: the zip, which carries its sleeves, or a bare sheet, which does " +
+                "not. plays already here are left alone either way.",
             style = Type.footnote,
             color = glass.inkFaint,
             modifier = Modifier.padding(top = Space.tight),
@@ -186,3 +212,12 @@ fun DataCard() {
         )
     }
 }
+
+
+/** What the file picker called the thing, when it will say. */
+private fun fileName(context: android.content.Context, uri: android.net.Uri): String? = runCatching {
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val column = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        if (column >= 0 && cursor.moveToFirst()) cursor.getString(column) else null
+    }
+}.getOrNull()
