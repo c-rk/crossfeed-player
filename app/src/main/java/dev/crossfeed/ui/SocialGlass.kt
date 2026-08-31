@@ -55,6 +55,7 @@ import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -93,20 +94,22 @@ fun SocialScreen() {
         return
     }
 
-    var posts by remember { mutableStateOf(emptyList<Post>()) }
-    var live by remember { mutableStateOf(emptyList<Live>()) }
-    var alerts by remember { mutableStateOf(Alerts(emptyList(), 0, 0)) }
-    var circle by remember { mutableStateOf(Circle(emptyList(), emptyList(), emptyList())) }
+    val posts = Aux.posts
+    val live = Aux.live
+    val alerts = Aux.alerts
+    val circle = Aux.circle
     var grid by remember { mutableStateOf(prefs.auxGrid) }
     var trayOpen by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
 
+    // while the page is open it keeps itself current, so a friend accepting, a song starting
+    // somewhere else, or a reaction arriving turns up on its own rather than on a swipe
     LaunchedEffect(Unit) {
-        posts = runCatching { Social.feed(context) }.getOrDefault(emptyList())
-        live = runCatching { Social.live(context) }.getOrDefault(emptyList())
-        alerts = runCatching { Social.alerts(context) }.getOrDefault(alerts)
-        circle = runCatching { Social.circle(context) }.getOrDefault(circle)
+        while (true) {
+            Aux.refresh(context)
+            delay(6_000)
+        }
     }
 
     fun react(post: Post, reaction: Reaction) {
@@ -116,7 +119,7 @@ fun SocialScreen() {
             return
         }
         val next = if (post.mine == reaction.emoji) null else reaction.emoji
-        posts = posts.map { if (it.id == post.id) it.withReaction(next) else it }
+        Aux.replace(posts.map { if (it.id == post.id) it.withReaction(next) else it })
         picking = null
         scope.launch {
             runCatching { Social.react(context, post.id, next.orEmpty()) }
@@ -148,7 +151,10 @@ fun SocialScreen() {
                     }
                     UnreadCircle(alerts.unread) {
                         trayOpen = !trayOpen
-                        if (trayOpen) scope.launch { runCatching { Social.markAlertsSeen(context) } }
+                        if (trayOpen) {
+                            Aux.seen()
+                            scope.launch { runCatching { Social.markAlertsSeen(context) } }
+                        }
                     }
                 }
 
@@ -168,13 +174,13 @@ fun SocialScreen() {
                             note = runCatching { Social.request(context, handle = handle) }
                                 .map { "asked @" + handle.removePrefix("@") }
                                 .getOrElse { it.message ?: "could not ask for that handle" }
-                            circle = runCatching { Social.circle(context) }.getOrDefault(circle)
+                            Aux.refresh(context)
                         }
                     },
                     onRespond = { person, accept ->
                         scope.launch {
                             runCatching { Social.respond(context, person.id, accept) }
-                            circle = runCatching { Social.circle(context) }.getOrDefault(circle)
+                            Aux.refresh(context)
                         }
                     },
                 )
@@ -201,7 +207,15 @@ fun SocialScreen() {
 
         if (posts.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("nothing on the aux yet.", style = Type.note, color = glass.t3)
+                Text(
+                    when {
+                        Aux.trouble != null -> Aux.trouble.orEmpty()
+                        Aux.loadedAt == 0L -> "reading the aux\u2026"
+                        else -> "nothing on the aux yet."
+                    },
+                    style = Type.note,
+                    color = if (Aux.trouble != null) glass.warning else glass.t3,
+                )
             }
         }
 

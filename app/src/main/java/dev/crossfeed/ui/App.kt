@@ -83,7 +83,13 @@ fun CrossfeedApp() {
                     else -> Unit
                 }
             } else {
-                HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { index ->
+                HorizontalPager(
+                    state = pager,
+                    // all four stay composed. there are only four, and the alternative is every
+                    // page rebuilding itself from nothing each time you swipe back to it
+                    beyondViewportPageCount = Roots.size,
+                    modifier = Modifier.fillMaxSize(),
+                ) { index ->
                     when (Roots[index]) {
                         Dest.AUX -> SocialScreen()
                         Dest.PLAYER -> PlayerScreen()

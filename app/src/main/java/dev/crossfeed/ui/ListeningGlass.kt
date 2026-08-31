@@ -63,6 +63,7 @@ import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -80,8 +81,8 @@ fun ListeningScreen() {
     val prefs = remember { Prefs(context) }
 
     var range by remember { mutableStateOf(Range.WEEK) }
-    var data by remember { mutableStateOf<Dashboard?>(null) }
-    var week by remember { mutableStateOf<List<Long>>(emptyList()) }
+    val data = Diary.showing
+    val week = Diary.week
     var grid by remember { mutableStateOf(prefs.diaryGrid) }
     var showLyrics by remember { mutableStateOf(false) }
     var showCurate by remember { mutableStateOf(false) }
@@ -96,13 +97,17 @@ fun ListeningScreen() {
             if (since > 24 * 3600_000L) {
                 runCatching { HistoryDb.get(context).tidy() }
                 prefs.tidiedAt = System.currentTimeMillis()
+                Diary.forget()
             }
         }
     }
 
+    // the diary is about what is happening now, so it keeps up while you are looking at it
     LaunchedEffect(range) {
-        data = Stats.load(context, range, "")
-        week = withContext(Dispatchers.IO) { spark(context, range) }
+        while (true) {
+            Diary.load(context, range) { withContext(Dispatchers.IO) { spark(context, range) } }
+            delay(10_000)
+        }
     }
 
     val deck = rememberDeck()
