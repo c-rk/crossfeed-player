@@ -162,7 +162,7 @@ fun ListeningScreen() {
                             style = Type.section,
                             color = glass.t3,
                         )
-                        plays.size.takeIf { it > 0 && !open }?.let {
+                        plays.size.takeIf { it > FOLDED && !open }?.let {
                             Spacer(Modifier.width(Space.tight))
                             Text("$it", style = Type.stamp, color = glass.t3)
                         }
@@ -177,7 +177,7 @@ fun ListeningScreen() {
             }
         }
 
-        if (open && plays.isEmpty()) {
+        if (plays.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     "nothing yet in this stretch.",
@@ -188,10 +188,25 @@ fun ListeningScreen() {
             }
         }
 
-        if (open) {
-            items(plays, key = { it.id }) { play ->
-                val onOpen = { scope.launch { Router.play(context, play.title, play.artist) }; Unit }
-                if (grid) PlayTile(play, onOpen) else PlayRow(play, onOpen)
+        // folded still shows the last few. a section that collapses to nothing is a section you
+        // forget is there, and the day so far is the point of the page
+        val shown = if (open) plays else plays.take(FOLDED)
+        items(shown, key = { it.id }) { play ->
+            val onOpen = { scope.launch { Router.play(context, play.title, play.artist) }; Unit }
+            if (grid && open) PlayTile(play, onOpen) else PlayRow(play, onOpen)
+        }
+
+        if (!open && plays.size > FOLDED) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    "and ${plays.size - FOLDED} more today",
+                    style = Type.note,
+                    color = glass.t3,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { open = true }
+                        .padding(vertical = Space.small),
+                )
             }
         }
 
@@ -650,6 +665,9 @@ private fun completion(play: Play): String {
 
 private fun finished(play: Play): Boolean =
     play.durationMs > 0 && play.listenedMs * 100 / play.durationMs >= 95
+
+/** How much of the day stays on screen when the section is folded. */
+private const val FOLDED = 5
 
 private fun clock(millis: Long): String {
     val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }

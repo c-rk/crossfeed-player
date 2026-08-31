@@ -139,7 +139,7 @@ fun SocialScreen() {
     LaunchedEffect(Unit) {
         while (true) {
             Aux.refresh(context)
-            delay(6_000)
+            delay(4_000)
         }
     }
 
@@ -374,6 +374,15 @@ private fun Listening(live: List<Live>) {
     val glass = LocalGlass.current
     val ring = glass.sage
     val rest = glass.t1.copy(alpha = 0.13f)
+
+    // a clock of its own, so the rings move between the times anyone speaks
+    var clock by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(400)
+            clock = System.currentTimeMillis()
+        }
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(Space.medium)) {
         for (person in live.take(3)) {
             Column(
@@ -396,11 +405,12 @@ private fun Listening(live: List<Live>) {
                             size = box,
                             style = Stroke(width = width, cap = StrokeCap.Round),
                         )
-                        if (person.through > 0f) {
+                        val sweep = person.throughAt(clock)
+                        if (sweep > 0f) {
                             drawArc(
                                 color = ring,
                                 startAngle = -90f,
-                                sweepAngle = 360f * person.through,
+                                sweepAngle = 360f * sweep,
                                 useCenter = false,
                                 topLeft = Offset(inset, inset),
                                 size = box,
