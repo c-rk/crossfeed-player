@@ -50,9 +50,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
-import dev.crossfeed.core.Router
 import dev.crossfeed.core.net.Circle
-import dev.crossfeed.core.net.Dm
 import dev.crossfeed.core.net.Person
 import dev.crossfeed.core.net.Account
 import dev.crossfeed.core.net.Alerts
@@ -70,16 +68,14 @@ import kotlinx.coroutines.launch
  * Four reactions, always the same four, always in this order.
  *
  * The old drawer of faces asked people to pick a mood off a keyboard. These say something instead,
- * and each one does a different thing: two are opinions, one is an action, and the last hands back
- * a song rather than a face. That last one is sage, because what it produces comes from a person.
+ * and each one does a different thing: two are opinions and one is an action.
  */
-private data class Reaction(val emoji: String, val label: String, val sage: Boolean = false)
+private data class Reaction(val emoji: String, val label: String)
 
 private val reactions = listOf(
     Reaction("🔥", "a banger"),
     Reaction("🎧", "on it now"),
     Reaction("💾", "keeping it"),
-    Reaction("↩", "reply", sage = true),
 )
 
 /**
@@ -135,8 +131,6 @@ fun SocialScreen() {
     var picking by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
     var sharing by remember { mutableStateOf(prefs.sharePlays) }
-    var sendTo by remember { mutableStateOf<Pair<String, String?>?>(null) }
-    var choosing by remember { mutableStateOf(false) }
 
     // while the page is open it keeps itself current, so a friend accepting, a song starting
     // somewhere else, or a reaction arriving turns up on its own rather than on a swipe
@@ -148,12 +142,6 @@ fun SocialScreen() {
     }
 
     fun react(post: Post, reaction: Reaction) {
-        if (reaction.label == "reply") {
-            // a reply hands a song back rather than a face, so it asks which song
-            sendTo = post.handle to post.id
-            picking = null
-            return
-        }
         val next = if (post.mine == reaction.emoji) null else reaction.emoji
         Aux.replace(posts.map { if (it.id == post.id) it.withReaction(next) else it })
         picking = null
@@ -165,26 +153,6 @@ fun SocialScreen() {
                 note = "kept ${post.title}"
             }
         }
-    }
-
-    sendTo?.let { (handle, postId) ->
-        SendSong(
-            to = handle,
-            replyTo = postId,
-            onSent = { note = it },
-            onDismiss = { sendTo = null },
-        )
-    }
-
-    if (choosing) {
-        PickPerson(
-            handles = circle.accepted.map { it.handle },
-            onPick = {
-                choosing = false
-                sendTo = it to null
-            },
-            onDismiss = { choosing = false },
-        )
     }
 
     LazyVerticalGrid(
@@ -205,7 +173,7 @@ fun SocialScreen() {
                             color = glass.t3,
                         )
                     }
-                    UnreadCircle(alerts.unread + Aux.dms.count { it.fresh }) {
+                    UnreadCircle(alerts.unread) {
                         trayOpen = !trayOpen
                         if (trayOpen) {
                             Aux.seen()
@@ -215,16 +183,7 @@ fun SocialScreen() {
                 }
 
                 Spacer(Modifier.height(Space.small))
-                Rise(trayOpen) {
-                    Tray(
-                        alerts = alerts,
-                        dms = Aux.dms,
-                        onPlay = { dm ->
-                            scope.launch { Router.play(context, dm.title, dm.artist) }
-                        },
-                        onClear = { trayOpen = false },
-                    )
-                }
+                Rise(trayOpen) { Tray(alerts) { trayOpen = false } }
                 if (trayOpen) Spacer(Modifier.height(Space.small))
 
                 if (live.isNotEmpty()) {
@@ -297,17 +256,6 @@ fun SocialScreen() {
                 ) {
                     Text("the feed", style = Type.section, color = glass.t1)
                     Spacer(Modifier.width(Space.tight))
-                    Box(
-                        Modifier
-                            .clip(Shapes.chip)
-                            .background(glass.sageTint)
-                            .border(1.dp, glass.sageBorder, Shapes.chip)
-                            .clickable { choosing = true }
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                    ) {
-                        Text("send a song", style = Type.metaStrong, color = glass.sage, maxLines = 1)
-                    }
-                    Spacer(Modifier.width(Space.tight))
                     Text(today(posts), style = Type.stamp, color = glass.t3, modifier = Modifier.weight(1f))
                     ViewToggle(grid) {
                         grid = it
@@ -373,7 +321,7 @@ private fun UnreadCircle(count: Int, onClick: () -> Unit) {
 
 /** Notifications, opened where they are. Never a screen, never a dialog. */
 @Composable
-private fun Tray(alerts: Alerts, dms: List<Dm>, onPlay: (Dm) -> Unit, onClear: () -> Unit) {
+private fun Tray(alerts: Alerts, onClear: () -> Unit) {
     val glass = LocalGlass.current
     GlassCard(padding = 15.dp) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -385,39 +333,11 @@ private fun Tray(alerts: Alerts, dms: List<Dm>, onPlay: (Dm) -> Unit, onClear: (
                 modifier = Modifier.clip(Shapes.chip).clickable(onClick = onClear).padding(4.dp),
             )
         }
-        if (alerts.items.isEmpty() && dms.isEmpty()) {
+        if (alerts.items.isEmpty()) {
             Spacer(Modifier.height(Space.small))
             Text("nothing waiting.", style = Type.note, color = glass.t3)
         }
 
-        // songs handed to you sit above reactions, because somebody chose them for you
-        for (dm in dms.take(6)) {
-            Spacer(Modifier.height(Space.small))
-            RowRule()
-            Row(
-                Modifier.fillMaxWidth().padding(top = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Sleeve(dm.title, dm.art, 34.dp, CircleShape)
-                Spacer(Modifier.width(11.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "@" + dm.handle + " sent you " + dm.title,
-                        style = Type.chip,
-                        color = glass.t2,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        listOfNotNull(dm.artist, age(dm.at)).joinToString(" · "),
-                        style = Type.meta,
-                        color = glass.t3,
-                    )
-                }
-                Spacer(Modifier.width(Space.tight))
-                PlayCircle(30.dp) { onPlay(dm) }
-            }
-        }
         for (alert in alerts.items.take(6)) {
             Spacer(Modifier.height(Space.small))
             RowRule()
@@ -616,15 +536,11 @@ private fun Picker(onPick: (Reaction) -> Unit, onDismiss: () -> Unit) {
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(
-                                when {
-                                    reaction.sage -> glass.sage
-                                    reaction == reactions.first() -> glass.accent
-                                    else -> glass.p2
-                                },
+                                if (reaction == reactions.first()) glass.accent else glass.p2,
                             )
                             .border(
                                 1.dp,
-                                if (reaction.sage || reaction == reactions.first()) Color.Transparent else glass.bd,
+                                if (reaction == reactions.first()) Color.Transparent else glass.bd,
                                 CircleShape,
                             )
                             .clickable { onPick(reaction) },
@@ -633,7 +549,7 @@ private fun Picker(onPick: (Reaction) -> Unit, onDismiss: () -> Unit) {
                         Text(
                             reaction.emoji,
                             style = Type.sectionSmall,
-                            color = if (reaction.sage) glass.onSage else glass.t1,
+                            color = glass.t1,
                         )
                     }
                     Spacer(Modifier.height(6.dp))
@@ -643,7 +559,7 @@ private fun Picker(onPick: (Reaction) -> Unit, onDismiss: () -> Unit) {
         }
         Spacer(Modifier.height(Space.small))
         Text(
-            "four, thumb sized, always the same four. the reply sends a song back instead of a face.",
+            "three, thumb sized, always the same three, always in this order.",
             style = Type.note,
             color = glass.t3,
         )

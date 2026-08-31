@@ -59,27 +59,6 @@ data class Sync(
     val together: List<Together> = emptyList(),
 )
 
-/**
- * A song handed to one person.
- *
- * Not a post with a smaller audience: a post is something you played and a dm is something you
- * chose for somebody. It carries who sent it, what they sent, and optionally the post it was an
- * answer to, so a reply can point back at what it is replying to.
- */
-data class Dm(
-    val id: String,
-    val handle: String,
-    val title: String,
-    val artist: String?,
-    val album: String?,
-    val art: String?,
-    val link: String?,
-    val note: String?,
-    val postId: String?,
-    val at: Long,
-    val fresh: Boolean,
-)
-
 data class Person(val id: String, val handle: String, val display: String)
 
 data class Circle(val accepted: List<Person>, val incoming: List<Person>, val outgoing: List<Person>)
@@ -206,50 +185,6 @@ object Social {
     suspend fun markAlertsSeen(context: Context) = withContext(Dispatchers.IO) {
         Api.post(context, "/v1/alerts/seen")
         Unit
-    }
-
-    /** Songs people have sent you, newest first. */
-    suspend fun dms(context: Context): List<Dm> = withContext(Dispatchers.IO) {
-        Api.get(context, "/v1/dms").optJSONArray("items").map {
-            Dm(
-                id = it.optString("id"),
-                handle = it.optString("handle"),
-                title = it.optString("title"),
-                artist = it.stringOrNull("artist"),
-                album = it.stringOrNull("album"),
-                art = it.stringOrNull("art"),
-                link = it.stringOrNull("link"),
-                note = it.stringOrNull("note"),
-                postId = it.stringOrNull("postId"),
-                at = it.optLong("at"),
-                fresh = it.optBoolean("fresh"),
-            )
-        }
-    }
-
-    /**
-     * Hands a song to somebody. Only to people you have both agreed to, which the server checks
-     * rather than trusting, because this is the one thing in crossfeed addressed to a person.
-     */
-    suspend fun send(
-        context: Context,
-        to: String,
-        title: String,
-        artist: String?,
-        album: String? = null,
-        art: String? = null,
-        link: String? = null,
-        postId: String? = null,
-    ): String = withContext(Dispatchers.IO) {
-        val body = JSONObject()
-            .put("to", to.removePrefix("@").trim())
-            .put("title", title)
-            .put("artist", artist)
-            .put("album", album)
-            .put("art", art)
-            .put("link", link)
-            .put("postId", postId)
-        Api.post(context, "/v1/dms", body).optString("id")
     }
 
     suspend fun react(context: Context, postId: String, emoji: String) = withContext(Dispatchers.IO) {
