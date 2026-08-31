@@ -8,6 +8,7 @@ import dev.crossfeed.core.history.Dashboard
 import dev.crossfeed.core.history.Range
 import dev.crossfeed.core.history.Stats
 import dev.crossfeed.core.net.Alerts
+import dev.crossfeed.core.net.ApiError
 import dev.crossfeed.core.net.Circle
 import dev.crossfeed.core.net.Live
 import dev.crossfeed.core.net.Post
@@ -79,23 +80,37 @@ object Aux {
      * because a stale feed is more use than an empty one, and says so quietly.
      */
     suspend fun refresh(context: Context) = coroutineScope {
-        val feed = async { runCatching { Social.feed(context) }.getOrNull() }
-        val playing = async { runCatching { Social.live(context) }.getOrNull() }
-        val tray = async { runCatching { Social.alerts(context) }.getOrNull() }
-        val people = async { runCatching { Social.circle(context) }.getOrNull() }
+        val feed = async { runCatching { Social.feed(context) } }
+        val playing = async { runCatching { Social.live(context) } }
+        val tray = async { runCatching { Social.alerts(context) } }
+        val people = async { runCatching { Social.circle(context) } }
 
         val gotFeed = feed.await()
         val gotLive = playing.await()
         val gotTray = tray.await()
         val gotPeople = people.await()
 
-        gotFeed?.let { posts = it }
-        gotLive?.let { live = it }
-        gotTray?.let { alerts = it }
-        gotPeople?.let { circle = it }
+        gotFeed.getOrNull()?.let { posts = it }
+        gotLive.getOrNull()?.let { live = it }
+        gotTray.getOrNull()?.let { alerts = it }
+        gotPeople.getOrNull()?.let { circle = it }
 
-        trouble = if (gotFeed == null && gotTray == null) "cannot reach the aux right now" else null
-        if (gotFeed != null || gotTray != null) loadedAt = System.currentTimeMillis()
+        // whatever went wrong, say the thing that went wrong. a generic line here was hiding
+        // the difference between no friends, no signal, and not being signed in at all
+        trouble = listOf(gotFeed, gotLive, gotTray, gotPeople)
+            .firstNotNullOfOrNull { it.exceptionOrNull() }
+            ?.let { why(it) }
+        if (gotFeed.isSuccess || gotTray.isSuccess) loadedAt = System.currentTimeMillis()
+    }
+
+    private fun why(error: Throwable): String {
+        val said = error.message.orEmpty().ifBlank { "something went wrong" }
+        return when ((error as? ApiError)?.code) {
+            0 -> "cannot reach the server"
+            401, 403 -> "this phone is not signed in: $said"
+            404 -> "the server does not know that: $said"
+            else -> said
+        }
     }
 
     /** Applied straight away so a tap does not wait on a round trip to look like it worked. */

@@ -1,5 +1,6 @@
 package dev.crossfeed.ui
 
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -89,8 +90,32 @@ fun SocialScreen() {
     val account = remember { Account(context) }
     val prefs = remember { Prefs(context) }
 
-    if (!account.exists || account.claiming != null) {
-        SocialLegacy()
+    var joining by remember { mutableStateOf(false) }
+
+    // the aux needs a handle, and this build has its own, separate from any other copy of the app
+    // on this phone. saying so plainly beats an empty feed that looks like nobody is posting
+    if (!account.exists || account.claiming != null || joining) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Space.large),
+        ) {
+            Spacer(Modifier.height(Space.medium))
+            Text("the aux", style = Type.page, color = glass.t1)
+            Text(
+                if (account.claiming != null) {
+                    "waiting on the handle @" + account.claiming + " to be handed over."
+                } else {
+                    "this copy of crossfeed has no handle yet, so there is no feed to show and " +
+                        "nobody listening. sign in below."
+                },
+                style = Type.note,
+                color = glass.t3,
+                modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
+            )
+            SocialLegacy()
+        }
         return
     }
 
@@ -164,8 +189,14 @@ fun SocialScreen() {
 
                 if (live.isNotEmpty()) {
                     Listening(live)
-                    Spacer(Modifier.height(Space.small))
+                } else {
+                    Text(
+                        "nobody on the aux has anything playing right now.",
+                        style = Type.note,
+                        color = glass.t3,
+                    )
                 }
+                Spacer(Modifier.height(Space.small))
 
                 People(
                     circle = circle,
@@ -186,6 +217,14 @@ fun SocialScreen() {
                 )
                 Spacer(Modifier.height(Space.small))
 
+                Aux.trouble?.let {
+                    Text(
+                        it,
+                        style = Type.note,
+                        color = glass.warning,
+                        modifier = Modifier.padding(bottom = Space.tight),
+                    )
+                }
                 note?.let {
                     Text(it, style = Type.note, color = glass.sage, modifier = Modifier.padding(bottom = Space.tight))
                 }
