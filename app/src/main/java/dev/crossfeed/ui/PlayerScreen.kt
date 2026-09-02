@@ -85,17 +85,6 @@ fun PlayerScreen() {
     var tracks by remember { mutableStateOf(emptyList<Track>()) }
     var buckets by remember { mutableStateOf(emptyList<Bucket>()) }
     var loading by remember { mutableStateOf(false) }
-    var turntable by remember { mutableStateOf(emptyList<Bucket>()) }
-
-    LaunchedEffect(Unit) {
-        val albums = withContext(Dispatchers.IO) { LocalBrowse.buckets(context, Category.ALBUMS) }
-        val returned = withContext(Dispatchers.IO) {
-            HistoryDb.get(context).top(Kind.ALBUM, Days.ago(30), limit = 12).map { it.label.lowercase() }
-        }
-        turntable = returned.mapNotNull { name ->
-            albums.firstOrNull { it.title.lowercase() == name }
-        }.take(8)
-    }
 
     LaunchedEffect(query, category, openKey) {
         loading = true
@@ -278,10 +267,6 @@ fun PlayerScreen() {
         }
 
         Spacer(Modifier.height(Space.small))
-        if (!searching && openKey == null && turntable.isNotEmpty()) {
-            Turntable(turntable) { openKey = it.key }
-        }
-
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             horizontalArrangement = Arrangement.spacedBy(Space.tight),
@@ -566,56 +551,3 @@ fun TrackArt(url: String?, title: String, size: Dp?) {
 }
 
 
-/**
- * The records you keep going back to, drawn as records.
- *
- * A shelf sorted a to z says nothing about what you actually play, so the ones you have returned to
- * this month sit above it, as discs rather than squares, because that is what they are.
- */
-@Composable
-private fun Turntable(records: List<Bucket>, onOpen: (Bucket) -> Unit) {
-    val glass = LocalGlass.current
-    Column {
-        Spacer(Modifier.height(Space.small))
-        Text("back on the turntable", style = Type.sectionSmall, color = glass.t1)
-        Spacer(Modifier.height(Space.small))
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(Space.medium),
-        ) {
-            for (record in records) {
-                Column(
-                    Modifier.width(96.dp).clickable { onOpen(record) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
-                        Sleeve(record.title, record.artwork, 96.dp, CircleShape)
-                        // the spindle hole, which is what makes it read as a record
-                        Box(
-                            Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(glass.bg)
-                                .border(1.dp, glass.bd, CircleShape),
-                        )
-                    }
-                    Spacer(Modifier.height(7.dp))
-                    Text(
-                        record.title,
-                        style = Type.label,
-                        color = glass.t1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        "${record.count} tracks",
-                        style = Type.meta,
-                        color = glass.t3,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(Space.medium))
-    }
-}

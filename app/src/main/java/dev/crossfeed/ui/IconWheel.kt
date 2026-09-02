@@ -63,8 +63,8 @@ fun IconWheel(
 ) {
     val glass = LocalGlass.current
     var spin by remember { mutableFloatStateOf(0f) }
-    // the orbit hugs the rim more closely, so the face shrinks and the icons do not
-    val radius = diameter / 2 - 36.dp
+    // nothing sits in the middle any more, so the orbit only has to clear the rim
+    val radius = diameter / 2 - 34.dp
     val step = 360f / platforms.size
 
     Box(
@@ -144,29 +144,6 @@ fun IconWheel(
                         scaleY = scale
                     },
                 onClick = { onToggle(platform) },
-            )
-        }
-
-        Box(
-            Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.verticalGradient(listOf(glass.fillStrong, glass.fill)),
-                )
-                .border(1.dp, glass.stroke, CircleShape)
-                .padding(12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = when {
-                    selected.isEmpty() -> "pick an app"
-                    selected.size == 1 -> selected.first().label
-                    else -> "${selected.size} apps\nask each time"
-                },
-                style = Type.callout,
-                color = glass.ink,
-                textAlign = TextAlign.Center,
             )
         }
     }

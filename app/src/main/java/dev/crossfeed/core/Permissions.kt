@@ -72,15 +72,8 @@ object Permissions {
                 ),
             )
         }
-        add(
-            Permit(
-                id = LINKS,
-                label = "music links",
-                unlocks = "opening spotify, apple music and youtube links inside crossfeed",
-                ask = Ask.Screen(::openLinkSettings),
-                granted = LinkOwnership.blockers(context).isEmpty(),
-            ),
-        )
+        // music links used to be listed here as well as under routing, where the card that can
+        // actually fix it lives. one place, and it is the one with the buttons
     }
 
     fun openListenerSettings(context: Context) {
