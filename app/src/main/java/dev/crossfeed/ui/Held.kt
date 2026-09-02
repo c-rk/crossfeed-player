@@ -10,6 +10,7 @@ import dev.crossfeed.core.history.Stats
 import dev.crossfeed.core.net.Alerts
 import dev.crossfeed.core.net.ApiError
 import dev.crossfeed.core.net.Circle
+import dev.crossfeed.core.net.Person
 import dev.crossfeed.core.net.Live
 import dev.crossfeed.core.net.Post
 import dev.crossfeed.core.net.Social
@@ -92,7 +93,10 @@ object Aux {
      * because friendships do not change by the second.
      */
     suspend fun refresh(context: Context, full: Boolean = false) = coroutineScope {
-        val since = if (full) 0L else cursor
+        if (cursor == 0L) restore(context)
+        // asking for everything is only right when there is nothing, since the sync answers with
+        // what changed and what is already here is still true
+        val since = if (full || posts.isEmpty()) 0L else cursor
         val sync = runCatching { Social.sync(context, since) }
 
         val stale = System.currentTimeMillis() - peopleAt > PEOPLE_EVERY_MS
@@ -117,6 +121,11 @@ object Aux {
         }
 
         people?.getOrNull()?.let { circle = it; peopleAt = System.currentTimeMillis() }
+
+        if (sync.isSuccess) {
+            loadedAt = System.currentTimeMillis()
+            keep(context)
+        }
 
         val gotFeed = sync
         val gotLive = sync
@@ -172,6 +181,100 @@ object Aux {
     }
 
     private const val PEOPLE_EVERY_MS = 60_000L
+
+    /**
+     * What was on screen last time, written down.
+     *
+     * Holding the feed in memory survives a swipe but not the app being closed, and a cold start
+     * that shows an empty aux for two seconds reads as broken rather than as loading. This is a
+     * few hundred lines of json, written after each sync and read once at the start, so the page
+     * opens on what you last saw and then catches up.
+     */
+    private fun file(context: Context) = java.io.File(context.filesDir, "aux.json")
+
+    private fun keep(context: Context) {
+        runCatching {
+            val out = org.json.JSONObject()
+            out.put("at", System.currentTimeMillis())
+            out.put("posts", org.json.JSONArray().apply { posts.take(40).forEach { put(it.row()) } })
+            out.put("live", org.json.JSONArray().apply { live.forEach { put(it.row()) } })
+            out.put("handles", org.json.JSONArray().apply { circle.accepted.forEach { put(it.handle) } })
+            file(context).writeText(out.toString())
+        }
+    }
+
+    private fun restore(context: Context) {
+        if (posts.isNotEmpty()) return
+        runCatching {
+            val held = file(context).takeIf { it.exists() }?.readText() ?: return
+            val root = org.json.JSONObject(held)
+            // what was written down was true at the moment it was written, and saying so is the
+            // difference between a stale page and a lying one
+            loadedAt = root.optLong("at")
+            val kept = root.optJSONArray("posts") ?: return
+            posts = (0 until kept.length()).mapNotNull { kept.optJSONObject(it)?.toPost() }
+            val playing = root.optJSONArray("live")
+            if (playing != null) {
+                live = (0 until playing.length()).mapNotNull { playing.optJSONObject(it)?.toLive() }
+            }
+            val names = root.optJSONArray("handles")
+            if (names != null && circle.accepted.isEmpty()) {
+                circle = circle.copy(
+                    accepted = (0 until names.length()).map {
+                        Person(id = "", handle = names.optString(it), display = names.optString(it))
+                    },
+                )
+            }
+        }
+    }
+
+    private fun Post.row() = org.json.JSONObject()
+        .put("id", id).put("handle", handle).put("title", title).put("artist", artist)
+        .put("album", album).put("art", art).put("source", source)
+        .put("listenedMs", listenedMs).put("durationMs", durationMs).put("updatedAt", updatedAt)
+        .put("reactions", reactions).put("mine", mine).put("self", self)
+        .put("counts", org.json.JSONObject(counts.mapValues { it.value }))
+
+    private fun org.json.JSONObject.toPost(): Post? {
+        val id = optString("id").takeIf { it.isNotBlank() } ?: return null
+        val tally = optJSONObject("counts")
+        return Post(
+            id = id,
+            handle = optString("handle"),
+            title = optString("title"),
+            artist = optString("artist").takeIf { it.isNotBlank() },
+            album = optString("album").takeIf { it.isNotBlank() },
+            art = optString("art").takeIf { it.isNotBlank() },
+            source = optString("source").takeIf { it.isNotBlank() },
+            listenedMs = optLong("listenedMs"),
+            durationMs = optLong("durationMs"),
+            updatedAt = optLong("updatedAt"),
+            reactions = optInt("reactions"),
+            mine = optString("mine").takeIf { it.isNotBlank() },
+            counts = tally?.keys()?.asSequence()?.associateWith { tally.optInt(it) }.orEmpty(),
+            self = optBoolean("self"),
+        )
+    }
+
+    private fun Live.row() = org.json.JSONObject()
+        .put("handle", handle).put("title", title).put("artist", artist).put("art", art)
+        .put("source", source).put("at", at).put("self", self)
+        .put("listenedMs", listenedMs).put("durationMs", durationMs)
+
+    private fun org.json.JSONObject.toLive(): Live? {
+        val handle = optString("handle").takeIf { it.isNotBlank() } ?: return null
+        return Live(
+            handle = handle,
+            title = optString("title"),
+            artist = optString("artist").takeIf { it.isNotBlank() },
+            art = optString("art").takeIf { it.isNotBlank() },
+            source = optString("source").takeIf { it.isNotBlank() },
+            at = optLong("at"),
+            self = optBoolean("self"),
+            listenedMs = optLong("listenedMs"),
+            durationMs = optLong("durationMs"),
+        )
+    }
 
     fun forget() {
         posts = emptyList()

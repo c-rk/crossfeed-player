@@ -32,7 +32,65 @@ object Artwork {
     }
 
     suspend fun loadUrl(context: Context, url: String): Bitmap? = withContext(Dispatchers.IO) {
-        cache.get(url) ?: load(context, url)?.also { cache.put(url, it) }
+        cache.get(url)?.let { return@withContext it }
+        // three places to look, cheapest first: memory, then this phone's disk, then the network
+        if (url.startsWith("https://")) {
+            kept(context, url)?.let { held ->
+                cache.put(url, held)
+                return@withContext held
+            }
+        }
+        val loaded = load(context, url) ?: return@withContext null
+        cache.put(url, loaded)
+        if (url.startsWith("https://")) keep(context, url, loaded)
+        loaded
+    }
+
+    /**
+     * Sleeves fetched from the net, kept on the phone.
+     *
+     * A feed of forty records is forty fetches every time the app is opened, for pictures that
+     * never change. They are small once they are webp, they belong to rows that will be scrolled
+     * past again tomorrow, and the alternative is a screen of letters while the network catches
+     * up. The folder is swept when it gets big rather than never.
+     */
+    private fun shelf(context: Context) = java.io.File(context.cacheDir, "sleeves").apply { mkdirs() }
+
+    private fun nameOf(url: String) = url.hashCode().toUInt().toString() + ".webp"
+
+    private fun kept(context: Context, url: String): Bitmap? = runCatching {
+        val file = java.io.File(shelf(context), nameOf(url))
+        if (!file.exists()) return null
+        file.setLastModified(System.currentTimeMillis())
+        BitmapFactory.decodeFile(file.absolutePath)
+    }.getOrNull()
+
+    private fun keep(context: Context, url: String, bitmap: Bitmap) {
+        runCatching {
+            val folder = shelf(context)
+            val file = java.io.File(folder, nameOf(url))
+            if (file.exists()) return
+            val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+            file.outputStream().use { bitmap.compress(format, 80, it) }
+            sweep(folder)
+        }
+    }
+
+    /** Keeps the shelf under a sensible size, oldest touched first out. */
+    private fun sweep(folder: java.io.File) {
+        val files = folder.listFiles() ?: return
+        var total = files.sumOf { it.length() }
+        if (total <= SHELF_BYTES) return
+        for (file in files.sortedBy { it.lastModified() }) {
+            if (total <= SHELF_BYTES) break
+            total -= file.length()
+            file.delete()
+        }
     }
 
     suspend fun loadRemote(url: String): Bitmap? = withContext(Dispatchers.IO) {
@@ -117,4 +175,5 @@ object Artwork {
     }
 
     private const val MAX_ART_BYTES = 3 * 1024 * 1024
+    private const val SHELF_BYTES = 24L * 1024 * 1024
 }

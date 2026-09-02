@@ -41,6 +41,7 @@ object Update {
     private const val LATEST =
         "https://api.github.com/repos/c-rk/crossfeed-player-release/releases/latest"
     private const val A_DAY = 24 * 3600_000L
+    private const val HALF_A_DAY = 12 * 3600_000L
 
     var notice by mutableStateOf<Notice?>(null)
         private set
@@ -57,12 +58,20 @@ object Update {
     suspend fun check(context: Context) = withContext(Dispatchers.IO) {
         val prefs = Prefs(context)
 
-        val fetched = runCatching {
+        // the notice is written by hand and changes about never, so asking twice a day is plenty.
+        // what it last said is remembered, so the banner still appears without asking again
+        val asked = System.currentTimeMillis() - prefs.bannerAskedAt < HALF_A_DAY
+        val fetched = if (asked) null else runCatching {
             val body = Api.get(context, "/v1/banner").optJSONObject("banner") ?: return@runCatching null
             val text = body.optString("text").takeIf { it.isNotBlank() } ?: return@runCatching null
             Notice(text = text, link = body.stringOrNull("link"), at = body.optLong("at"))
         }.getOrNull()
-        notice = fetched?.takeIf { it.at > prefs.noticeSeen }
+        if (!asked) prefs.bannerAskedAt = System.currentTimeMillis()
+        fetched?.let { prefs.bannerHeld = it.text + "\u0000" + it.link.orEmpty() + "\u0000" + it.at }
+        val held = fetched ?: prefs.bannerHeld?.split("\u0000")?.takeIf { it.size == 3 }?.let {
+            Notice(text = it[0], link = it[1].takeIf(String::isNotBlank), at = it[2].toLongOrNull() ?: 0)
+        }
+        notice = held?.takeIf { it.text.isNotBlank() && it.at > prefs.noticeSeen }
 
         // github allows sixty of these an hour per address, and a version does not appear more than
         // once a day, so asking once a day is plenty

@@ -97,6 +97,15 @@ class Prefs(context: Context) {
         set(value) = store.edit().putBoolean(KEY_GENRES, value).apply()
 
     /** When the last notice the user waved away was posted. */
+    /** When the server was last asked whether there is a notice, and what it said. */
+    var bannerAskedAt: Long
+        get() = store.getLong(KEY_BANNER_AT, 0)
+        set(value) = store.edit().putLong(KEY_BANNER_AT, value).apply()
+
+    var bannerHeld: String?
+        get() = store.getString(KEY_BANNER, null)
+        set(value) = store.edit().putString(KEY_BANNER, value).apply()
+
     /** When github was last asked whether there is a newer version. */
     var updateCheckedAt: Long
         get() = store.getLong(KEY_CHECKED, 0)
@@ -168,6 +177,8 @@ class Prefs(context: Context) {
         private const val KEY_GENRES = "look_up_genres"
         private const val KEY_NOTICE = "notice_seen"
         private const val KEY_CHECKED = "update_checked_at"
+        private const val KEY_BANNER_AT = "banner_asked_at"
+        private const val KEY_BANNER = "banner_held"
         private const val KEY_VERSION_SEEN = "version_seen"
         private const val KEY_STORE = "store_country"
         private const val KEY_BROWSER_MUSIC = "count_browser_music"

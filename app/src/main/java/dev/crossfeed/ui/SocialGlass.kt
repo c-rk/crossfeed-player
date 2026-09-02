@@ -148,10 +148,8 @@ fun SocialScreen(visible: Boolean = true) {
     LaunchedEffect(visible, owner) {
         if (!visible) return@LaunchedEffect
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            var first = true
             while (true) {
-                Aux.refresh(context, full = first)
-                first = false
+                Aux.refresh(context)
                 delay(15_000)
             }
         }
@@ -262,12 +260,27 @@ fun SocialScreen(visible: Boolean = true) {
                 }
 
                 Aux.trouble?.let {
-                    Text(
-                        it,
-                        style = Type.note,
-                        color = glass.warning,
-                        modifier = Modifier.padding(bottom = Space.tight),
-                    )
+                    // out of touch rather than empty: the page keeps showing the last thing it
+                    // knew, and says how old that is instead of pretending it is now
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = Space.tight),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            it,
+                            style = Type.note,
+                            color = glass.warning,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Aux.loadedAt.takeIf { at -> at > 0 }?.let { at ->
+                            Text(
+                                "as of " + age(at),
+                                style = Type.metaStrong,
+                                color = glass.t3,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
                 note?.let {
                     Text(it, style = Type.note, color = glass.sage, modifier = Modifier.padding(bottom = Space.tight))
