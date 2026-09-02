@@ -49,7 +49,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun RouteScreen() {
+fun RouteScreen(embedded: Boolean = false) {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val prefs = remember { Prefs(context) }
@@ -78,15 +78,20 @@ fun RouteScreen() {
     }
 
     Column(
-        Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = Space.large),
+        if (embedded) {
+            Modifier
+        } else {
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Space.large)
+        },
     ) {
-        Spacer(Modifier.height(Space.medium))
-        Text("crossfeed", style = Type.wordmark, color = glass.ink)
-        Text("music anywhere", style = Type.body, color = glass.inkMuted)
-
-        Spacer(Modifier.height(Space.medium))
+        if (!embedded) {
+            Spacer(Modifier.height(Space.medium))
+            Text("crossfeed", style = Type.wordmark, color = glass.ink)
+            Text("music anywhere", style = Type.body, color = glass.inkMuted)
+            Spacer(Modifier.height(Space.medium))
+        }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             IconWheel(
@@ -98,6 +103,9 @@ fun RouteScreen() {
                     if (targets.isEmpty()) targets = listOf(platform)
                     prefs.targets = targets
                     ThemeSeed.pkg = targets.first().pkg
+                    // the first route is the colour of the whole app, so changing it here
+                    // retints everything rather than waiting for a restart
+                    dev.crossfeed.ui.theme.Look.routed(context)
                     result = null
                 },
             )

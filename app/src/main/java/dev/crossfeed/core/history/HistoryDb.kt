@@ -404,7 +404,8 @@ class HistoryDb private constructor(context: Context) :
                 arrayOf(Kind.DAY, Kind.HOUR, Kind.SOURCE, Kind.TITLE, Kind.ARTIST, Kind.ALBUM),
             )
             db.rawQuery(
-                "SELECT title, artist, album, source, started_at, listened_ms FROM plays",
+                "SELECT title, artist, album, source, started_at, listened_ms FROM plays " +
+                    "WHERE hidden = 0",
                 null,
             ).use { cursor ->
                 while (cursor.moveToNext()) {
@@ -792,6 +793,18 @@ class HistoryDb private constructor(context: Context) :
     fun hide(id: Long) {
         val values = android.content.ContentValues().apply { put("hidden", 1) }
         writableDatabase.update("plays", values, "id = ?", arrayOf(id.toString()))
+    }
+
+    /**
+     * Takes a track out of the diary entirely: every play of it, and its share of every figure.
+     *
+     * Hiding used to only affect the list. The charts are built from running totals, and those
+     * were recounted from all rows regardless, so a track you had forgotten carried on topping
+     * your hours. Forgetting now means forgotten.
+     */
+    fun forgetTrack(title: String, artist: String?) {
+        hideTrack(title, artist)
+        recount()
     }
 
     fun hideTrack(title: String, artist: String?) {

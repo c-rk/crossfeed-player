@@ -23,7 +23,7 @@ import dev.crossfeed.ui.theme.LocalGlass
 
 enum class Glyph {
     PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST, CLOSE,
-    DEVICE, SEARCH, REPLY, DIARY, PEOPLE, DISC, GEAR,
+    DEVICE, SEARCH, REPLY, DIARY, PEOPLE, DISC, GEAR, SUN, MOON, TURNTABLE,
 }
 
 @Composable
@@ -237,6 +237,58 @@ fun Mark(
                         close()
                     }
                     drawPath(second, ink)
+                }
+
+                Glyph.SUN -> {
+                    drawCircle(ink, w * 0.26f, Offset(w * 0.5f, h * 0.5f))
+                    repeat(8) { index ->
+                        rotate(index * 45f, Offset(w * 0.5f, h * 0.5f)) {
+                            drawLine(
+                                ink,
+                                Offset(w * 0.5f, h * 0.02f),
+                                Offset(w * 0.5f, h * 0.14f),
+                                strokeWidth = w * 0.1f,
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            )
+                        }
+                    }
+                }
+
+                Glyph.MOON -> {
+                    // a crescent, cut rather than drawn: the same circle twice, offset
+                    val path = Path().apply {
+                        addOval(
+                            androidx.compose.ui.geometry.Rect(
+                                Offset(w * 0.06f, h * 0.06f),
+                                androidx.compose.ui.geometry.Size(w * 0.88f, h * 0.88f),
+                            ),
+                        )
+                    }
+                    val bite = Path().apply {
+                        addOval(
+                            androidx.compose.ui.geometry.Rect(
+                                Offset(w * 0.32f, h * -0.06f),
+                                androidx.compose.ui.geometry.Size(w * 0.86f, h * 0.86f),
+                            ),
+                        )
+                    }
+                    drawPath(
+                        Path().apply { op(path, bite, androidx.compose.ui.graphics.PathOperation.Difference) },
+                        ink,
+                    )
+                }
+
+                Glyph.TURNTABLE -> {
+                    // the deck, not just the record: a platter, its spindle, and the arm across it
+                    drawCircle(ink, w * 0.44f, Offset(w * 0.46f, h * 0.54f), style = Stroke(width = w * 0.1f))
+                    drawCircle(ink, w * 0.1f, Offset(w * 0.46f, h * 0.54f))
+                    drawLine(
+                        ink,
+                        Offset(w * 0.92f, h * 0.1f),
+                        Offset(w * 0.56f, h * 0.62f),
+                        strokeWidth = w * 0.1f,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
                 }
 
                 Glyph.DISC -> {

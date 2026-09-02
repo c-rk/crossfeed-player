@@ -173,7 +173,7 @@ private fun NavPill(selected: Dest, onSelect: (Dest) -> Unit, modifier: Modifier
 
 private fun glyphOf(dest: Dest): Glyph = when (dest) {
     Dest.AUX -> Glyph.PEOPLE
-    Dest.PLAYER -> Glyph.DISC
+    Dest.PLAYER -> Glyph.TURNTABLE
     Dest.SETTINGS -> Glyph.GEAR
     else -> Glyph.DIARY
 }

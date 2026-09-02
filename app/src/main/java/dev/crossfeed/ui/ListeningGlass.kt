@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import dev.crossfeed.core.Artwork
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,6 +88,7 @@ fun ListeningScreen() {
     var grid by remember { mutableStateOf(prefs.diaryGrid) }
     var showLyrics by remember { mutableStateOf(false) }
     var showCurate by remember { mutableStateOf(false) }
+    var forgetting by remember { mutableStateOf<Play?>(null) }
     var open by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
@@ -193,7 +196,8 @@ fun ListeningScreen() {
         val shown = if (open) plays else plays.take(FOLDED)
         items(shown, key = { it.id }) { play ->
             val onOpen = { scope.launch { Router.play(context, play.title, play.artist) }; Unit }
-            if (grid && open) PlayTile(play, onOpen) else PlayRow(play, onOpen)
+            val onHold = { forgetting = play }
+            if (grid && open) PlayTile(play, onOpen, onHold) else PlayRow(play, onOpen, onHold)
         }
 
         if (!open && plays.size > FOLDED) {
@@ -234,6 +238,23 @@ fun ListeningScreen() {
                 }
             }
         }
+    }
+
+    forgetting?.let { play ->
+        ForgetTrack(
+            play = play,
+            onKeep = { forgetting = null },
+            onForget = {
+                forgetting = null
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        HistoryDb.get(context).forgetTrack(play.title, play.artist)
+                    }
+                    Diary.forget()
+                    Diary.load(context, range) { withContext(Dispatchers.IO) { spark(context, range) } }
+                }
+            },
+        )
     }
 
     if (showLyrics) LyricsScreen(onClose = { showLyrics = false })
@@ -513,9 +534,10 @@ private fun LyricStrip(deck: Deck, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun PlayRow(play: Play, onOpen: () -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun PlayRow(play: Play, onOpen: () -> Unit, onHold: () -> Unit) {
     val glass = LocalGlass.current
-    Column(Modifier.clickable(onClick = onOpen)) {
+    Column(Modifier.combinedClickable(onClick = onOpen, onLongClick = onHold)) {
         RowRule()
         Row(
             Modifier.fillMaxWidth().padding(vertical = 7.dp),
@@ -553,9 +575,10 @@ private fun PlayRow(play: Play, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun PlayTile(play: Play, onOpen: () -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun PlayTile(play: Play, onOpen: () -> Unit, onHold: () -> Unit) {
     val glass = LocalGlass.current
-    Column(Modifier.clickable(onClick = onOpen)) {
+    Column(Modifier.combinedClickable(onClick = onOpen, onLongClick = onHold)) {
         Box {
             Sleeve(play.title, play.artwork, 0.dp, Shapes.artSmall, fill = true)
             Text(
@@ -720,3 +743,41 @@ private fun sourceLabel(context: android.content.Context, pkg: String): String =
     val manager = context.packageManager
     manager.getApplicationLabel(manager.getApplicationInfo(pkg, 0)).toString().lowercase()
 }.getOrDefault(pkg.substringAfterLast('.'))
+
+
+/**
+ * Some things play without being listened to: a tab left open, a record that carried on after you
+ * walked away. They are honestly captured and still wrong, so there is a way to say so, and it
+ * takes the track out of the totals rather than only out of the list.
+ */
+@Composable
+private fun ForgetTrack(play: Play, onKeep: () -> Unit, onForget: () -> Unit) {
+    val glass = LocalGlass.current
+    androidx.compose.ui.window.Dialog(onDismissRequest = onKeep) {
+        GlassCard(strong = true, padding = Space.medium) {
+            Text("forget this one?", style = Type.section, color = glass.t1)
+            Text(
+                play.title + (play.artist?.let { " · $it" } ?: ""),
+                style = Type.rowTitle,
+                color = glass.t2,
+                modifier = Modifier.padding(top = Space.tight),
+            )
+            Text(
+                "every play of it goes, and so does its share of your hours, your plays and every " +
+                    "chart. nothing else is touched.",
+                style = Type.note,
+                color = glass.t3,
+                modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                GlassButton(
+                    label = "forget it",
+                    filled = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = onForget,
+                )
+                GlassButton(label = "keep it", modifier = Modifier.weight(1f), onClick = onKeep)
+            }
+        }
+    }
+}

@@ -46,6 +46,13 @@ import dev.crossfeed.ui.Dest
 import dev.crossfeed.ui.GlassButton
 import dev.crossfeed.ui.GlassCard
 import dev.crossfeed.ui.Nav
+import dev.crossfeed.ui.RouteScreen
+import dev.crossfeed.ui.theme.Accents
+import dev.crossfeed.ui.theme.Look
+import dev.crossfeed.ui.theme.Shapes
+import dev.crossfeed.core.LinkOwnership
+import dev.crossfeed.core.Platform
+import dev.crossfeed.ui.PlatformGlyph
 import dev.crossfeed.ui.SectionHeader
 import dev.crossfeed.ui.bottomRoom
 import dev.crossfeed.ui.theme.LocalGlass
@@ -77,24 +84,47 @@ fun SettingsScreen(nav: Nav) {
     ) {
         Spacer(Modifier.height(Space.medium))
         Text("your call", style = Type.page, color = glass.t1)
-        Text(
-            "turn on only what buys you something.",
-            style = Type.note,
-            color = glass.t3,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-
-        Spacer(Modifier.height(Space.medium))
-        RoutingCard()
-
-        Spacer(Modifier.height(Space.medium))
-        GlassCard {
-            SectionHeader("links")
-            EntryRow(
-                title = "try a link, and who owns them",
-                subtitle = "paste one to see where it lands, and fix any android sent elsewhere",
-                onClick = { nav.push(Dest.ROUTE) },
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "turn on only what buys you something.",
+                style = Type.note,
+                color = glass.t3,
+                modifier = Modifier.weight(1f).padding(top = 4.dp),
             )
+            ModeToggle()
+        }
+
+        Spacer(Modifier.height(Space.medium))
+        // one wheel, not two. there used to be a dial here and a wheel a tap away, both setting
+        // the same thing by different rules, which is a good way to end up with neither
+        var routing by remember { mutableStateOf(false) }
+        GlassCard {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(Shapes.chip)
+                    .clickable { routing = !routing }
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("routing", style = Type.section, color = glass.t1)
+                    Text(
+                        if (routing) {
+                            "where music comes from, and where links land"
+                        } else {
+                            Accents.nameOf(Look.lead) + " leads · tap to change"
+                        },
+                        style = Type.note,
+                        color = glass.t3,
+                    )
+                }
+                Text(if (routing) "\u2013" else "+", style = Type.section, color = glass.t3)
+            }
+            if (routing) {
+                Spacer(Modifier.height(Space.small))
+                RouteScreen(embedded = true)
+            }
         }
 
         Spacer(Modifier.height(Space.medium))
@@ -185,6 +215,7 @@ fun PermissionsCard(resumes: Int) {
     val glass = LocalGlass.current
 
     var permits by remember { mutableStateOf(emptyList<Permit>()) }
+    var links by remember { mutableStateOf(emptyList<Platform>()) }
     var reads by remember { mutableIntStateOf(0) }
     var pending by remember { mutableStateOf<String?>(null) }
 
@@ -201,6 +232,7 @@ fun PermissionsCard(resumes: Int) {
 
     LaunchedEffect(reads, resumes) {
         permits = withContext(Dispatchers.IO) { Permissions.all(context) }
+        links = withContext(Dispatchers.IO) { LinkOwnership.held(context) }
     }
 
     GlassCard {
@@ -223,13 +255,26 @@ fun PermissionsCard(resumes: Int) {
                 Column(Modifier.weight(1f)) {
                     Text(permit.label, style = Type.headline, color = glass.ink)
                     Text(
-                        permit.unlocks,
+                        if (permit.id == Permissions.LINKS && links.isNotEmpty()) {
+                            links.joinToString(", ") { it.label } + " open here"
+                        } else {
+                            permit.unlocks
+                        },
                         style = Type.footnote,
                         color = glass.inkMuted,
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }
-                if (permit.granted) {
+                val opened = if (permit.id == Permissions.LINKS) links else emptyList()
+                if (opened.isNotEmpty()) {
+                    // what it opens, rather than a switch that says on. these are the ones whose
+                    // links land here now, which is the thing the setting was for
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (platform in opened) {
+                            PlatformGlyph(platform, size = 22.dp)
+                        }
+                    }
+                } else if (permit.granted) {
                     Playing()
                 } else {
                     GlassButton(
