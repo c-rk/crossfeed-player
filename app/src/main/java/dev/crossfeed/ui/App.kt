@@ -91,7 +91,7 @@ fun CrossfeedApp() {
                     modifier = Modifier.fillMaxSize(),
                 ) { index ->
                     when (Roots[index]) {
-                        Dest.AUX -> SocialScreen()
+                        Dest.AUX -> SocialScreen(visible = page == Dest.AUX)
                         Dest.PLAYER -> PlayerScreen()
                         Dest.SETTINGS -> SettingsScreen(nav)
                         else -> ListeningScreen()

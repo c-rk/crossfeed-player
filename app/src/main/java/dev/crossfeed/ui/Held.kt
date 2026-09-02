@@ -79,29 +79,50 @@ object Aux {
      * another. A failure leaves what was already there on screen rather than blanking the page,
      * because a stale feed is more use than an empty one, and says so quietly.
      */
-    suspend fun refresh(context: Context) = coroutineScope {
-        val feed = async { runCatching { Social.feed(context) } }
-        val playing = async { runCatching { Social.live(context) } }
-        val tray = async { runCatching { Social.alerts(context) } }
-        val people = async { runCatching { Social.circle(context) } }
+    private var cursor = 0L
+    private var peopleAt = 0L
 
-        val gotFeed = feed.await()
-        val gotLive = playing.await()
-        val gotTray = tray.await()
-        val gotPeople = people.await()
+    /**
+     * Everything the aux page shows, in as few questions as it can be asked in.
+     *
+     * It used to ask four separate things every few seconds, one of which counts every reaction on
+     * every post it returns. That is a lot of database for a page nobody is looking at, and it ran
+     * whether you were looking or not. Now it asks the one endpoint built for this, which answers
+     * with only what has changed since last time, and the circle is only re-read now and then
+     * because friendships do not change by the second.
+     */
+    suspend fun refresh(context: Context, full: Boolean = false) = coroutineScope {
+        val since = if (full) 0L else cursor
+        val sync = runCatching { Social.sync(context, since) }
 
-        gotFeed.getOrNull()?.let { fresh ->
-            posts = if (inFlight.isEmpty()) {
-                fresh
-            } else {
-                // anything still being written keeps what this phone believes about it
-                val mine = posts.associateBy { it.id }
-                fresh.map { post -> if (post.id in inFlight) mine[post.id] ?: post else post }
-            }
+        val stale = System.currentTimeMillis() - peopleAt > PEOPLE_EVERY_MS
+        val people = if (full || stale) {
+            async { runCatching { Social.circle(context) } }.await()
+        } else {
+            null
         }
-        gotLive.getOrNull()?.let { live = it }
-        gotTray.getOrNull()?.let { alerts = it }
-        gotPeople.getOrNull()?.let { circle = it }
+
+        sync.getOrNull()?.let { fresh ->
+            cursor = fresh.now
+            if (since == 0L) {
+                posts = fresh.posts
+            } else if (fresh.posts.isNotEmpty()) {
+                // what came back is what changed, so it goes on top of what was already here
+                val changed = fresh.posts.associateBy { it.id }
+                val kept = posts.filterNot { it.id in changed }
+                posts = (fresh.posts + kept).sortedByDescending { it.updatedAt }
+            }
+            fresh.live?.let { live = it }
+            alerts = alerts.copy(unread = fresh.unread, requests = fresh.requests)
+        }
+
+        people?.getOrNull()?.let { circle = it; peopleAt = System.currentTimeMillis() }
+
+        val gotFeed = sync
+        val gotLive = sync
+        val gotTray = sync
+        val gotPeople = people ?: sync
+
 
         // whatever went wrong, say the thing that went wrong. a generic line here was hiding
         // the difference between no friends, no signal, and not being signed in at all
@@ -144,6 +165,13 @@ object Aux {
     fun seen() {
         alerts = alerts.copy(unread = 0)
     }
+
+    /** The tray's contents, asked for only when somebody opens it. */
+    suspend fun openTray(context: Context) {
+        runCatching { Social.alerts(context) }.getOrNull()?.let { alerts = it }
+    }
+
+    private const val PEOPLE_EVERY_MS = 60_000L
 
     fun forget() {
         posts = emptyList()

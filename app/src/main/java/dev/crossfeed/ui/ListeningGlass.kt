@@ -106,7 +106,7 @@ fun ListeningScreen() {
     LaunchedEffect(range) {
         while (true) {
             Diary.load(context, range) { withContext(Dispatchers.IO) { spark(context, range) } }
-            delay(10_000)
+            delay(20_000)
         }
     }
 

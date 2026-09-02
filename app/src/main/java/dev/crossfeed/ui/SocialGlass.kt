@@ -44,6 +44,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.Router
 import androidx.compose.foundation.horizontalScroll
@@ -89,7 +92,7 @@ private val reactions = listOf(
  * closes again.
  */
 @Composable
-fun SocialScreen() {
+fun SocialScreen(visible: Boolean = true) {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val scope = rememberCoroutineScope()
@@ -135,12 +138,22 @@ fun SocialScreen() {
     var note by remember { mutableStateOf<String?>(null) }
     var sharing by remember { mutableStateOf(prefs.sharePlays) }
 
-    // while the page is open it keeps itself current, so a friend accepting, a song starting
-    // somewhere else, or a reaction arriving turns up on its own rather than on a swipe
-    LaunchedEffect(Unit) {
-        while (true) {
-            Aux.refresh(context)
-            delay(4_000)
+    /*
+     * Keeping current costs somebody else's database, so it only happens when it is worth
+     * something: while this page is the one on screen, and while the app is actually in front of
+     * you. All four pages stay composed so swiping is instant, which meant this loop used to run
+     * for hours against a page nobody was looking at.
+     */
+    val owner = LocalLifecycleOwner.current
+    LaunchedEffect(visible, owner) {
+        if (!visible) return@LaunchedEffect
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            var first = true
+            while (true) {
+                Aux.refresh(context, full = first)
+                first = false
+                delay(15_000)
+            }
         }
     }
 
@@ -184,7 +197,10 @@ fun SocialScreen() {
                         trayOpen = !trayOpen
                         if (trayOpen) {
                             Aux.seen()
-                            scope.launch { runCatching { Social.markAlertsSeen(context) } }
+                            scope.launch {
+                                Aux.openTray(context)
+                                runCatching { Social.markAlertsSeen(context) }
+                            }
                         }
                     }
                 }
