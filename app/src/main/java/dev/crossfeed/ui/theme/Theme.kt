@@ -141,6 +141,23 @@ object Accents {
 
     val onDevice = Color(0xFFF6A06B)
 
+    /**
+     * The colour of whatever is playing, wherever it is playing from.
+     *
+     * A service crossfeed knows gets its own brand colour. Anything else — a local player, a
+     * browser, something obscure — is asked for the dominant colour of its own icon, which is
+     * usually the colour that app thinks of as its own. Nothing playing means the app falls back
+     * to whichever route leads.
+     */
+    fun ofApp(context: Context, pkg: String?): Color? {
+        if (pkg.isNullOrBlank()) return null
+        Platform.entries.firstOrNull { it.pkg == pkg }?.let { return of(it.id) }
+        if (pkg == context.packageName) return null
+        return remembered.getOrPut(pkg) { appAccent(context, pkg) }
+    }
+
+    private val remembered = mutableMapOf<String, Color?>()
+
     fun of(routeId: String?): Color = when (routeId) {
         Platform.APPLE_MUSIC.id -> Color(0xFFFF375F)
         Platform.SPOTIFY.id -> Color(0xFF1ED760)
@@ -232,7 +249,10 @@ fun CrossfeedTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable (
         "light" -> false
         else -> dark
     }
-    val glass = (if (night) Night else Day).copy(accent = Accents.of(Look.lead))
+    // the app wears what is playing, and falls back to what it routes through when nothing is
+    val playing = dev.crossfeed.core.history.NowPlaying.current?.takeIf { it.playing }?.source
+    val accent = Accents.ofApp(context, playing) ?: Accents.of(Look.lead)
+    val glass = (if (night) Night else Day).copy(accent = accent)
 
     val scheme = if (night) {
         darkColorScheme(

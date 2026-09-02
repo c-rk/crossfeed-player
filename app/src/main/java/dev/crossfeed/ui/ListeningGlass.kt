@@ -89,7 +89,9 @@ fun ListeningScreen() {
     var showLyrics by remember { mutableStateOf(false) }
     var showCurate by remember { mutableStateOf(false) }
     var forgetting by remember { mutableStateOf<Play?>(null) }
-    var open by remember { mutableStateOf(true) }
+    // folded to start: the five most recent are the ones you want, and the charts
+    // underneath are what the page is for
+    var open by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // once a day, fold anything reported twice into the one listen it was, then recount. doing
@@ -149,16 +151,16 @@ fun ListeningScreen() {
                     Modifier.fillMaxWidth().padding(top = Space.tight, bottom = Space.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // the heading is the handle: the day folds away when you want the charts
+                    // one diary, folded to five, opening into sections. two cards asking almost
+                    // the same question was one card too many
                     Row(
                         Modifier
                             .weight(1f)
-                            .clip(Shapes.chip)
                             .clickable { open = !open }
                             .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("the day so far", style = Type.section, color = glass.t1)
+                        Text("the diary", style = Type.section, color = glass.t1)
                         Spacer(Modifier.width(Space.tight))
                         Text(
                             if (open) "\u2013" else "+",
@@ -191,26 +193,46 @@ fun ListeningScreen() {
             }
         }
 
-        // folded still shows the last few. a section that collapses to nothing is a section you
-        // forget is there, and the day so far is the point of the page
-        val shown = if (open) plays else plays.take(FOLDED)
-        items(shown, key = { it.id }) { play ->
-            val onOpen = { scope.launch { Router.play(context, play.title, play.artist) }; Unit }
-            val onHold = { forgetting = play }
-            if (grid && open) PlayTile(play, onOpen, onHold) else PlayRow(play, onOpen, onHold)
-        }
-
-        if (!open && plays.size > FOLDED) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(
-                    "and ${plays.size - FOLDED} more today",
-                    style = Type.note,
-                    color = glass.t3,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { open = true }
-                        .padding(vertical = Space.small),
+        if (!open) {
+            // folded, it is the last few, because a section that collapses to nothing is one you
+            // forget is there
+            items(plays.take(FOLDED), key = { it.id }) { play ->
+                PlayRow(
+                    play,
+                    { scope.launch { Router.play(context, play.title, play.artist) }; Unit },
+                    { forgetting = play },
                 )
+            }
+            if (plays.size > FOLDED) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        "and ${plays.size - FOLDED} more",
+                        style = Type.note,
+                        color = glass.t3,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { open = true }
+                            .padding(vertical = Space.small),
+                    )
+                }
+            }
+        } else {
+            for (stretch in Stretch.entries) {
+                val batch = plays.filter { stretch.holds(it.startedAt) }
+                if (batch.isEmpty()) continue
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        stretch.label,
+                        style = Type.tag,
+                        color = glass.t3,
+                        modifier = Modifier.padding(top = Space.medium, bottom = Space.tight),
+                    )
+                }
+                items(batch, key = { it.id }) { play ->
+                    val onOpen = { scope.launch { Router.play(context, play.title, play.artist) }; Unit }
+                    val onHold = { forgetting = play }
+                    if (grid) PlayTile(play, onOpen, onHold) else PlayRow(play, onOpen, onHold)
+                }
             }
         }
 
@@ -779,5 +801,36 @@ private fun ForgetTrack(play: Play, onKeep: () -> Unit, onForget: () -> Unit) {
                 GlassButton(label = "keep it", modifier = Modifier.weight(1f), onClick = onKeep)
             }
         }
+    }
+}
+
+
+/**
+ * How the diary is cut up when it is open.
+ *
+ * Not by date, by how recent it feels: what has happened today, the couple of days you can still
+ * remember, the week behind that, and everything before it.
+ */
+private enum class Stretch(val label: String, private val fromDays: Int, private val toDays: Int) {
+    TODAY("TODAY", 0, 0),
+    RECENT("THE LAST TWO DAYS", 1, 2),
+    WEEK("THIS PAST WEEK", 3, 7),
+    OLDER("BEFORE THAT", 8, Int.MAX_VALUE);
+
+    fun holds(startedAt: Long): Boolean {
+        val days = daysAgo(startedAt)
+        return days in fromDays..toDays
+    }
+
+    private fun daysAgo(startedAt: Long): Int {
+        val start = java.util.Calendar.getInstance().apply {
+            timeInMillis = System.currentTimeMillis()
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        if (startedAt >= start) return 0
+        return (((start - startedAt) / 86_400_000L) + 1).toInt()
     }
 }
