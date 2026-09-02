@@ -102,7 +102,8 @@ fun SettingsScreen(nav: Nav) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(Shapes.chip)
+                    // no clip: a rounded corner on a full width row shaves the first letter off
+                    // the line beneath the heading, which is how it came out reading "ople music"
                     .clickable { routing = !routing }
                     .padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,

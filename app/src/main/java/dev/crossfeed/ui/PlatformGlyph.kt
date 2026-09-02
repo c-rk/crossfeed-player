@@ -1,6 +1,9 @@
 package dev.crossfeed.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -13,7 +16,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import dev.crossfeed.R
 import dev.crossfeed.core.Platform
-import dev.crossfeed.ui.theme.LocalGlass
 
 /**
  * A service's face, wherever one is needed.
@@ -44,12 +46,24 @@ fun PlatformGlyph(
         )
         return
     }
-    Image(
-        painter = painterResource(markOf(platform)),
-        contentDescription = platform.label,
-        colorFilter = ColorFilter.tint(tint ?: tintOf(platform)),
-        modifier = faded.then(Modifier.size(size * 0.92f)),
-    )
+    // an app icon, not a symbol: the brand's own colour as the disc, the mark in white on top,
+    // so a service you have not installed still reads at a glance beside ones you have
+    Box(
+        faded.then(
+            Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(tint ?: fillOf(platform)),
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(markOf(platform)),
+            contentDescription = platform.label,
+            colorFilter = ColorFilter.tint(inkOf(platform)),
+            modifier = Modifier.size(size * 0.62f),
+        )
+    }
 }
 
 private fun markOf(platform: Platform): Int = when (platform) {
@@ -60,12 +74,15 @@ private fun markOf(platform: Platform): Int = when (platform) {
     Platform.DEEZER -> R.drawable.ic_service_deezer
 }
 
-/** Each service's own colour, except tidal, whose mark is plain and this app is dark. */
-@Composable
-private fun tintOf(platform: Platform): Color = when (platform) {
+/** The disc behind the mark: each service's own colour. */
+private fun fillOf(platform: Platform): Color = when (platform) {
     Platform.APPLE_MUSIC -> Color(0xFFFA243C)
     Platform.SPOTIFY -> Color(0xFF1DB954)
     Platform.YOUTUBE_MUSIC -> Color(0xFFFF0033)
     Platform.DEEZER -> Color(0xFFA238FF)
-    Platform.TIDAL -> LocalGlass.current.ink
+    Platform.TIDAL -> Color(0xFF00FFFF)
 }
+
+/** And what sits on it. Tidal's mark is black on its cyan; everyone else's is white. */
+private fun inkOf(platform: Platform): Color =
+    if (platform == Platform.TIDAL) Color(0xFF0B0B0C) else Color.White

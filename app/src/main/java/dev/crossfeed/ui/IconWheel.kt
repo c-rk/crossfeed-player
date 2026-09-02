@@ -59,11 +59,12 @@ fun IconWheel(
     installed: (Platform) -> Boolean,
     onToggle: (Platform) -> Unit,
     modifier: Modifier = Modifier,
-    diameter: Dp = 300.dp,
+    diameter: Dp = 238.dp,
 ) {
     val glass = LocalGlass.current
     var spin by remember { mutableFloatStateOf(0f) }
-    val radius = diameter / 2 - 44.dp
+    // the orbit hugs the rim more closely, so the face shrinks and the icons do not
+    val radius = diameter / 2 - 36.dp
     val step = 360f / platforms.size
 
     Box(
