@@ -148,9 +148,13 @@ fun SocialScreen(visible: Boolean = true) {
     LaunchedEffect(visible, owner) {
         if (!visible) return@LaunchedEffect
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // the app this replaces already had the right shape here and I wrote a worse one:
+            // it backs off when nothing is happening, so an aux left open on a quiet afternoon
+            // asks once a minute rather than four times
+            var quiet = 0
             while (true) {
-                Aux.refresh(context)
-                delay(15_000)
+                if (Aux.refresh(context)) quiet = 0 else quiet++
+                delay(if (quiet >= 4) 60_000L else 20_000L)
             }
         }
     }

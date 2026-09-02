@@ -92,7 +92,8 @@ object Aux {
      * with only what has changed since last time, and the circle is only re-read now and then
      * because friendships do not change by the second.
      */
-    suspend fun refresh(context: Context, full: Boolean = false) = coroutineScope {
+    /** Answers whether anything actually changed, so a caller can slow down when nothing does. */
+    suspend fun refresh(context: Context, full: Boolean = false): Boolean = coroutineScope {
         if (cursor == 0L) restore(context)
         // asking for everything is only right when there is nothing, since the sync answers with
         // what changed and what is already here is still true
@@ -126,19 +127,13 @@ object Aux {
             loadedAt = System.currentTimeMillis()
             keep(context)
         }
-
-        val gotFeed = sync
-        val gotLive = sync
-        val gotTray = sync
-        val gotPeople = people ?: sync
-
-
         // whatever went wrong, say the thing that went wrong. a generic line here was hiding
         // the difference between no friends, no signal, and not being signed in at all
-        trouble = listOf(gotFeed, gotLive, gotTray, gotPeople)
+        trouble = listOfNotNull(sync, people)
             .firstNotNullOfOrNull { it.exceptionOrNull() }
             ?.let { why(it) }
-        if (gotFeed.isSuccess || gotTray.isSuccess) loadedAt = System.currentTimeMillis()
+
+        sync.getOrNull()?.posts?.isNotEmpty() == true
     }
 
     private fun why(error: Throwable): String {
