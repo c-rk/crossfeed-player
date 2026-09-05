@@ -60,7 +60,9 @@ object Publisher {
                 if (art == null) mendArt(context, title, artist, album, source, startedAt, listenedMs, durationMs)
             }.onFailure {
                 pushed.remove(key)
-                Log.w("Publisher", "could not post $title", it)
+                // no title in here. logcat is readable from a bug report, and what you are
+                // listening to is not something to leave lying around in one
+                Log.w("Publisher", "could not post a play", it)
             }
         }
     }
@@ -131,7 +133,11 @@ object Publisher {
      * only gained artwork on a later push, which never came if the song ended first.
      */
     fun warmArt(context: Context, title: String, artist: String?) {
-        if (!Prefs(context).sharePlays) return
+        // the same gate the post itself gets. looking a sleeve up tells apple and the rest what is
+        // playing, so pausing has to stop that too, or a pause only half means what it says
+        val prefs = Prefs(context)
+        if (!prefs.sharePlays || prefs.sharingPaused) return
+        if (!Account(context).exists || Suspension.active) return
         scope.launch { runCatching { remoteArt(context, title, artist) } }
     }
 

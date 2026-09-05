@@ -12,7 +12,12 @@ import org.json.JSONObject
  */
 object PlaylistMeta {
 
-    private val nextData = Regex("""<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""")
+    // dot has to cross newlines here, the way its twin in SourceMeta already does, or a payload
+    // that happens to be printed over several lines is simply never found
+    private val nextData = Regex(
+        """<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
 
     fun tracks(url: String, limit: Int = 100): List<TrackMeta> {
         val list = when (LinkParser.platformOf(url)) {

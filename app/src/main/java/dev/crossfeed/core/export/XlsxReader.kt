@@ -27,9 +27,12 @@ object XlsxReader {
                 val entry = zip.nextEntry ?: break
                 if (parts.size >= MAX_ENTRIES) break
                 if (!entry.isDirectory) {
-                    val bytes = zip.readBytes()
+                    // read against what is left of the ceiling rather than reading the entry whole
+                    // and measuring afterwards. a single entry can claim to be small and unpack to
+                    // gigabytes, and by then it is already in memory
+                    val bytes = zip.readAtMost(MAX_BYTES - total)
+                        ?: throw IllegalArgumentException("that file is too large")
                     total += bytes.size
-                    if (total > MAX_BYTES) throw IllegalArgumentException("that file is too large")
                     parts[entry.name] = bytes
                 }
                 zip.closeEntry()
@@ -111,4 +114,18 @@ object XlsxReader {
         .replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&amp;", "&")
+
+    /** Reads at most [limit] bytes, and gives up rather than growing past it. */
+    internal fun InputStream.readAtMost(limit: Long): ByteArray? {
+        if (limit <= 0) return null
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (true) {
+            val count = read(buffer)
+            if (count < 0) break
+            if (out.size() + count > limit) return null
+            out.write(buffer, 0, count)
+        }
+        return out.toByteArray()
+    }
 }

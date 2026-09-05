@@ -20,7 +20,8 @@ object VideoTitles {
         val artwork: String?,
     )
 
-    private val decided = HashMap<String, Match?>()
+    // written from the capture scope, which runs a coroutine per session
+    private val decided = java.util.Collections.synchronizedMap(HashMap<String, Match?>())
 
     private val brackets = Regex("\\[[^\\]]*\\]|\\((?:[^()]*)\\)")
 

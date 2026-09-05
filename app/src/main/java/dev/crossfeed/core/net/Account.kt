@@ -59,7 +59,10 @@ class Account(context: Context) {
             if (response.optString("claim").isNotBlank()) return@withContext false
             val handle = response.optString("handle")
             if (handle.isBlank()) return@withContext false
-            account.save(response.optString("id"), handle, account.token.orEmpty())
+            // without a token there is no account, and saving an empty one leaves the app looking
+            // signed in while every call goes out with nothing behind it
+            val token = account.token?.takeIf { it.isNotBlank() } ?: return@withContext false
+            account.save(response.optString("id"), handle, token)
             account.claiming = null
             true
         }

@@ -2,6 +2,7 @@ package dev.crossfeed.core.export
 
 import android.content.Context
 import android.net.Uri
+import dev.crossfeed.core.export.XlsxReader.readAtMost
 import dev.crossfeed.core.history.ArtStore
 import dev.crossfeed.core.history.HistoryDb
 import dev.crossfeed.core.history.Play
@@ -114,7 +115,12 @@ object Restore {
     /** A sleeve carried in a bundle now lives in the art folder, so that is where it points. */
     private fun landed(context: Context, artwork: String): String {
         if (!artwork.startsWith(Bundle.ART)) return artwork
+        // the same stripping the unpacking side does. a spreadsheet is a file somebody hands you,
+        // and a name like ../../databases out of one should point at a sleeve or at nothing
         val name = artwork.removePrefix(Bundle.ART)
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+        if (name.isBlank() || name == "." || name == "..") return artwork
         return "file://" + java.io.File(ArtStore.folder(context), name).absolutePath
     }
 
@@ -136,11 +142,16 @@ object Restore {
         runCatching {
             context.contentResolver.openInputStream(uri)?.use { raw ->
                 java.util.zip.ZipInputStream(raw).use { zip ->
+                    var unpacked = 0L
                     while (true) {
                         val entry = zip.nextEntry ?: break
+                        if (sleeves >= MOST_SLEEVES) break
                         if (entry.name.startsWith(Bundle.ART) && !entry.isDirectory) {
                             val name = entry.name.removePrefix(Bundle.ART)
-                            if (ArtStore.accept(context, name, zip.readBytes()) != null) sleeves++
+                            // bounded, so a small zip cannot unpack until the phone is full
+                            val bytes = zip.readAtMost(MOST_UNPACKED - unpacked) ?: break
+                            unpacked += bytes.size
+                            if (ArtStore.accept(context, name, bytes) != null) sleeves++
                         }
                         zip.closeEntry()
                     }
@@ -161,4 +172,8 @@ object Restore {
         if (result.unreadable > 0) append(", ${result.unreadable} unreadable")
         if (result.sleeves > 0) append(", ${result.sleeves} sleeves")
     }
+
+    // the same ceilings the merge path uses
+    private const val MOST_UNPACKED = 512L * 1024 * 1024
+    private const val MOST_SLEEVES = 50_000
 }

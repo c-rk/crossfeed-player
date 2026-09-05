@@ -2,6 +2,7 @@ package dev.crossfeed.core.export
 
 import android.content.Context
 import android.net.Uri
+import dev.crossfeed.core.export.XlsxReader.readAtMost
 import dev.crossfeed.core.history.ArtStore
 import java.io.InputStream
 import java.io.OutputStream
@@ -84,13 +85,21 @@ object Bundle {
 
         context.contentResolver.openInputStream(uri)?.use { raw ->
             ZipInputStream(raw).use { zip ->
+                var unpacked = 0L
                 while (true) {
                     val entry = zip.nextEntry ?: break
+                    if (sleeves >= MOST_SLEEVES) break
                     when {
-                        entry.name == SHEET -> sheet = zip.readBytes()
+                        entry.name == SHEET -> sheet = zip.readAtMost(MOST_UNPACKED - unpacked)
+                            ?.also { unpacked += it.size }
+                            ?: throw IllegalArgumentException("that zip is too large")
+
                         entry.name.startsWith(ART) && !entry.isDirectory -> {
                             val name = entry.name.removePrefix(ART)
-                            if (ArtStore.accept(context, name, zip.readBytes()) != null) sleeves++
+                            val bytes = zip.readAtMost(MOST_UNPACKED - unpacked)
+                                ?: throw IllegalArgumentException("that zip is too large")
+                            unpacked += bytes.size
+                            if (ArtStore.accept(context, name, bytes) != null) sleeves++
                         }
                     }
                     zip.closeEntry()
@@ -109,7 +118,10 @@ object Bundle {
             ZipInputStream(raw).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
-                    if (entry.name == DB) return zip.readBytes()
+                    if (entry.name == DB) {
+                        return zip.readAtMost(MOST_UNPACKED)
+                            ?: throw IllegalArgumentException("that zip is too large")
+                    }
                     zip.closeEntry()
                 }
             }
@@ -139,6 +151,12 @@ object Bundle {
             }
         } ?: false
     }.getOrDefault(false)
+
+    // a zip says how big it is and can be lying. a real diary bundle is a spreadsheet and a few
+    // thousand small webp sleeves, so these are generous by any honest measure and still stop a
+    // small file that claims to unpack to the whole disk
+    private const val MOST_UNPACKED = 512L * 1024 * 1024
+    private const val MOST_SLEEVES = 50_000
 
     /** The zip stream must outlive each entry, so the writer inside it may not close it. */
     private class NonClosing(private val inner: OutputStream) : OutputStream() {

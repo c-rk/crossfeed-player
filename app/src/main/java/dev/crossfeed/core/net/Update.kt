@@ -64,12 +64,20 @@ object Update {
         val fetched = if (asked) null else runCatching {
             val body = Api.get(context, "/v1/banner").optJSONObject("banner") ?: return@runCatching null
             val text = body.optString("text").takeIf { it.isNotBlank() } ?: return@runCatching null
-            Notice(text = text, link = body.stringOrNull("link"), at = body.optLong("at"))
+            // the banner is one of the few things the server gets to put in front of you, and a
+            // tap on it opens whatever it says. anything but a web address is refused, because a
+            // scheme like intent: is a way of reaching into other apps rather than a link
+            val link = body.stringOrNull("link")?.takeIf { it.startsWith("https://") }
+            Notice(text = text, link = link, at = body.optLong("at"))
         }.getOrNull()
         if (!asked) prefs.bannerAskedAt = System.currentTimeMillis()
         fetched?.let { prefs.bannerHeld = it.text + "\u0000" + it.link.orEmpty() + "\u0000" + it.at }
         val held = fetched ?: prefs.bannerHeld?.split("\u0000")?.takeIf { it.size == 3 }?.let {
-            Notice(text = it[0], link = it[1].takeIf(String::isNotBlank), at = it[2].toLongOrNull() ?: 0)
+            Notice(
+                text = it[0],
+                link = it[1].takeIf { link -> link.startsWith("https://") },
+                at = it[2].toLongOrNull() ?: 0,
+            )
         }
         notice = held?.takeIf { it.text.isNotBlank() && it.at > prefs.noticeSeen }
 
@@ -91,11 +99,11 @@ object Update {
             val asset = assets.optJSONObject(index) ?: continue
             val name = asset.optString("name")
             if (name.endsWith(".apk")) {
-                return Newer(
-                    version = tag,
-                    apk = asset.optString("browser_download_url"),
-                    page = release.optString("html_url"),
-                )
+                // the address of the download comes out of the reply, and what it points at gets
+                // handed to the installer, so it has to be github and nowhere else
+                val apk = asset.optString("browser_download_url")
+                if (!fromGithub(apk)) return null
+                return Newer(version = tag, apk = apk, page = release.optString("html_url"))
             }
         }
         return null
@@ -130,14 +138,35 @@ object Update {
             folder.listFiles()?.forEach { it.delete() }
             val file = File(folder, "crossfeed-player-${release.version}.apk")
 
+            if (!fromGithub(release.apk)) {
+                trouble = "that download did not come from the right place"
+                return@withContext
+            }
+
             val connection = (URL(release.apk).openConnection() as HttpURLConnection).apply {
                 setRequestProperty("User-Agent", "crossfeed")
                 connectTimeout = 20_000
                 readTimeout = 60_000
                 instanceFollowRedirects = true
             }
+            var written = 0L
             connection.inputStream.use { input ->
-                file.outputStream().use { output -> input.copyTo(output) }
+                file.outputStream().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        written += read
+                        // the app is forty odd megabytes. a reply that never ends would otherwise
+                        // fill the phone, so it is given a ceiling and no more
+                        if (written > MOST_AN_APK_CAN_BE) {
+                            file.delete()
+                            trouble = "that download was far too big"
+                            return@withContext
+                        }
+                        output.write(buffer, 0, read)
+                    }
+                }
             }
             if (file.length() < 1_000_000) {
                 trouble = "that download did not finish"
@@ -173,6 +202,13 @@ object Update {
         newer?.let { dev.crossfeed.core.Opener.openWeb(context, it.page) }
     }
 
+    /** Where a release can legitimately be downloaded from, and nowhere else. */
+    private fun fromGithub(url: String): Boolean = runCatching {
+        val host = URL(url).host.lowercase()
+        url.startsWith("https://") &&
+            (host == "github.com" || host == "objects.githubusercontent.com")
+    }.getOrDefault(false)
+
     private fun read(url: String): String? = runCatching {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             setRequestProperty("User-Agent", "crossfeed")
@@ -180,6 +216,21 @@ object Update {
             connectTimeout = 15_000
             readTimeout = 15_000
         }
-        connection.inputStream.bufferedReader().use { it.readText() }
+        // a release listing is a few kilobytes of json. reading without a ceiling means a reply
+        // that never ends takes the app down with it
+        connection.inputStream.use { stream ->
+            val out = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(16 * 1024)
+            while (true) {
+                val count = stream.read(buffer)
+                if (count < 0) break
+                out.write(buffer, 0, count)
+                if (out.size() > MOST_A_REPLY_CAN_BE) return@runCatching null
+            }
+            out.toString(Charsets.UTF_8.name())
+        }
     }.getOrNull()
+
+    private const val MOST_AN_APK_CAN_BE = 200L * 1024 * 1024
+    private const val MOST_A_REPLY_CAN_BE = 512 * 1024
 }

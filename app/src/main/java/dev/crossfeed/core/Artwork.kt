@@ -153,12 +153,41 @@ object Artwork {
             if (conn.contentLength > MAX_ART_BYTES) return null
             conn.inputStream.use { stream ->
                 val bytes = stream.readBytes(MAX_ART_BYTES) ?: return null
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                decode(bytes)
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             null
         } finally {
             conn?.disconnect()
+        }
+    }
+
+    /**
+     * Reads the size before reading the pixels.
+     *
+     * Three megabytes of file can be an enormous number of pixels, and the decoder asks for all of
+     * them at once. Running out of memory that way throws an Error rather than an Exception, which
+     * walks straight past an ordinary catch and takes the app with it, so the size is checked
+     * first and anything absurd is refused rather than attempted.
+     */
+    private fun decode(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val width = bounds.outWidth
+        val height = bounds.outHeight
+        if (width <= 0 || height <= 0) return null
+        if (width.toLong() * height.toLong() > MAX_ART_PIXELS) return null
+
+        // a sleeve is never shown larger than a phone screen, so anything much bigger is read at a
+        // fraction of its size. the common case is a 600 or 1200 pixel cover, which lands on 1 and
+        // is read exactly as it was before
+        var sample = 1
+        while (width / sample > ART_EDGE * 2 || height / sample > ART_EDGE * 2) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        return try {
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        } catch (_: Throwable) {
+            null
         }
     }
 
@@ -175,5 +204,7 @@ object Artwork {
     }
 
     private const val MAX_ART_BYTES = 3 * 1024 * 1024
+    private const val MAX_ART_PIXELS = 40_000_000L
+    private const val ART_EDGE = 1024
     private const val SHELF_BYTES = 24L * 1024 * 1024
 }
