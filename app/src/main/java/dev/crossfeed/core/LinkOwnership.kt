@@ -16,6 +16,31 @@ object LinkOwnership {
         "https://tidal.com/browse/track/1",
     )
 
+    /**
+     * Which services crossfeed already opens the links of.
+     *
+     * The counterpart to blockers, and the more useful half: a row that only ever says what is
+     * still wrong has nothing to show for the work once it is right.
+     */
+    fun held(context: Context): List<Platform> {
+        val manager = context.packageManager
+        val self = context.packageName
+        val out = mutableListOf<Platform>()
+        for (probe in probes) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(probe)).addCategory(Intent.CATEGORY_BROWSABLE)
+            val resolved = manager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            val owner = resolved?.activityInfo?.packageName
+            val host = Uri.parse(probe).host ?: continue
+            val platform = Platform.entries.firstOrNull { host.contains(it.id.substringBefore('_')) }
+                ?: LinkParser.platformOf(probe)
+                ?: continue
+            // ours, or nobody else's, both of which mean the link lands here
+            val mine = owner == self || owner == null || (owner.contains("android") && owner.contains("resolver"))
+            if (mine) out.add(platform)
+        }
+        return out.distinct()
+    }
+
     fun blockers(context: Context): List<Claim> {
         val manager = context.packageManager
         val self = context.packageName

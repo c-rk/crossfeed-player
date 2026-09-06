@@ -73,7 +73,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun SocialScreen() {
+fun SocialLegacy() {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val scope = rememberCoroutineScope()

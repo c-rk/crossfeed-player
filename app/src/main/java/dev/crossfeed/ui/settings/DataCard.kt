@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.export.Export
+import dev.crossfeed.core.export.Bundle
 import dev.crossfeed.core.export.Restore
 import dev.crossfeed.core.export.Workbook
 import dev.crossfeed.core.history.HistoryDb
@@ -56,12 +57,17 @@ fun DataCard() {
     var exported by remember { mutableStateOf<Export?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
+    var replacing by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val wholePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) replacing = uri
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             importing = true
             scope.launch {
-                runCatching { Restore.fromXlsx(context, uri) }
+                runCatching { Restore.fromFile(context, uri) }
                     .onSuccess {
                         note = Restore.describe(it)
                         reload++
@@ -117,15 +123,33 @@ fun DataCard() {
         SectionHeader("export")
         Text(
             "every play, every total, every finish rate, written to a spreadsheet you own. " +
-                "eleven sheets, saved to downloads.",
+                "eleven sheets, saved to downloads. the zip carries the artwork with them, so " +
+                    "the diary opens whole on another phone.",
             style = Type.footnote,
             color = glass.inkMuted,
         )
         Spacer(Modifier.height(Space.small))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
             GlassButton(
-                label = if (exporting) "writing…" else "export .xlsx",
+                label = if (exporting) "writing…" else "everything",
                 filled = true,
+                enabled = !exporting,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    exporting = true
+                    scope.launch {
+                        runCatching { Workbook.bundle(context) }
+                            .onSuccess {
+                                exported = it
+                                note = "exported ${it.path} · ${Stats.bytes(it.bytes)}"
+                            }
+                            .onFailure { note = "could not write the file" }
+                        exporting = false
+                    }
+                },
+            )
+            GlassButton(
+                label = "sheet only",
                 enabled = !exporting,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -141,27 +165,82 @@ fun DataCard() {
                     }
                 },
             )
-            exported?.let { file ->
-                GlassButton(
-                    label = "send",
-                    modifier = Modifier.weight(1f),
-                    onClick = { Workbook.share(context, file) },
-                )
-            }
+        }
+        exported?.let { file ->
+            Spacer(Modifier.height(Space.small))
+            GlassButton(
+                label = "send " + file.name.substringAfterLast('.'),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { Workbook.share(context, file) },
+            )
         }
         Spacer(Modifier.height(Space.small))
         GlassButton(
-            label = if (importing) "reading…" else "import .xlsx",
+            label = if (importing) "reading…" else "bring a diary back",
             enabled = !importing,
             modifier = Modifier.fillMaxWidth(),
-            onClick = { picker.launch(arrayOf(Workbook.MIME, "application/octet-stream", "*/*")) },
+            onClick = {
+                picker.launch(
+                    arrayOf(Bundle.MIME, Workbook.MIME, "application/octet-stream", "*/*"),
+                )
+            },
+        )
+        Spacer(Modifier.height(Space.tight))
+        GlassButton(
+            label = if (importing) "reading…" else "replace with a backup",
+            enabled = !importing,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { wholePicker.launch(arrayOf(Bundle.MIME, "application/octet-stream", "*/*")) },
         )
         Text(
-            "brings a previous export back into this phone. plays already here are left alone.",
+            "the first merges: it adds what is missing and leaves what is here. the second " +
+                "restores: the diary in the zip becomes the diary on this phone, saves, genres, " +
+                "artwork and all. use that one when you move phones.",
             style = Type.footnote,
             color = glass.inkFaint,
             modifier = Modifier.padding(top = Space.tight),
         )
+        replacing?.let { uri ->
+            Spacer(Modifier.height(Space.small))
+            GlassCard(strong = true) {
+                Text("replace everything?", style = Type.section, color = glass.ink)
+                Text(
+                    "the diary on this phone is thrown away and the one in that zip takes its " +
+                        "place. there is no undo, so export first if there is anything here you " +
+                        "have not got a copy of.",
+                    style = Type.footnote,
+                    color = glass.inkMuted,
+                    modifier = Modifier.padding(vertical = Space.tight),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                    GlassButton(
+                        label = "replace",
+                        filled = true,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val target = uri
+                            replacing = null
+                            importing = true
+                            scope.launch {
+                                runCatching { Restore.whole(context, target) }
+                                    .onSuccess {
+                                        note = "restored ${it.added} plays and ${it.sleeves} sleeves"
+                                        reload++
+                                    }
+                                    .onFailure { note = it.message ?: "could not read that backup" }
+                                importing = false
+                            }
+                        },
+                    )
+                    GlassButton(
+                        label = "keep mine",
+                        modifier = Modifier.weight(1f),
+                        onClick = { replacing = null },
+                    )
+                }
+            }
+        }
+
         note?.let {
             Spacer(Modifier.height(Space.tight))
             Text(it, style = Type.footnote, color = glass.inkMuted)
@@ -186,3 +265,12 @@ fun DataCard() {
         )
     }
 }
+
+
+/** What the file picker called the thing, when it will say. */
+private fun fileName(context: android.content.Context, uri: android.net.Uri): String? = runCatching {
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val column = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        if (column >= 0 && cursor.moveToFirst()) cursor.getString(column) else null
+    }
+}.getOrNull()

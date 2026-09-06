@@ -21,7 +21,10 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.ui.theme.LocalGlass
 
-enum class Glyph { PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST, CLOSE }
+enum class Glyph {
+    PLAY, PAUSE, NEXT, PREVIOUS, PLUS, BOOKMARK, BELL, LINK, COPY, GRID, LIST, CLOSE,
+    DEVICE, SEARCH, REPLY, DIARY, PEOPLE, DISC, GEAR, SUN, MOON, TURNTABLE,
+}
 
 @Composable
 fun IconAction(
@@ -48,7 +51,42 @@ fun IconAction(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.size(diameter * 0.45f)) {
+        Mark(glyph, diameter * 0.45f, ink, active)
+    }
+}
+
+/** The tab bar wears a gear rather than the word, so the row stays short. */
+@Composable
+fun Gear(active: Boolean) {
+    val glass = LocalGlass.current
+    val ink = if (active) Color.White else glass.ink
+    Canvas(Modifier.size(19.dp)) {
+        val radius = size.minDimension * 0.30f
+        val centre = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(ink, radius, centre, style = Stroke(width = size.width * 0.13f))
+        val tooth = androidx.compose.ui.geometry.Size(size.width * 0.13f, size.height * 0.20f)
+        repeat(8) { index ->
+            rotate(index * 45f, centre) {
+                drawRect(ink, Offset(centre.x - tooth.width / 2f, 0f), tooth)
+            }
+        }
+    }
+}
+
+
+/**
+ * One icon, drawn rather than shipped, so a glyph can be any size and any colour without a
+ * drawable per pairing.
+ */
+@Composable
+fun Mark(
+    glyph: Glyph,
+    side: androidx.compose.ui.unit.Dp,
+    tint: Color,
+    active: Boolean = false,
+) {
+    val ink = tint
+    Canvas(Modifier.size(side)) {
             val w = size.width
             val h = size.height
             when (glyph) {
@@ -169,6 +207,141 @@ fun IconAction(
                     drawPath(cross, ink, style = stroke)
                 }
 
+                Glyph.DIARY -> {
+                    // the sparkline, small: what the diary is for
+                    val bar = w * 0.2f
+                    val heights = listOf(0.5f, 0.82f, 0.34f, 1f)
+                    heights.forEachIndexed { index, share ->
+                        val tall = h * share
+                        drawRoundRect(
+                            ink,
+                            Offset(index * (bar + w * 0.07f), h - tall),
+                            androidx.compose.ui.geometry.Size(bar, tall),
+                            androidx.compose.ui.geometry.CornerRadius(bar / 2f, bar / 2f),
+                        )
+                    }
+                }
+
+                Glyph.PEOPLE -> {
+                    drawCircle(ink, w * 0.24f, Offset(w * 0.32f, h * 0.36f))
+                    drawCircle(ink, w * 0.24f, Offset(w * 0.68f, h * 0.36f))
+                    val path = Path().apply {
+                        moveTo(0f, h)
+                        cubicTo(w * 0.06f, h * 0.6f, w * 0.58f, h * 0.6f, w * 0.64f, h)
+                        close()
+                    }
+                    drawPath(path, ink)
+                    val second = Path().apply {
+                        moveTo(w * 0.36f, h)
+                        cubicTo(w * 0.42f, h * 0.6f, w * 0.94f, h * 0.6f, w, h)
+                        close()
+                    }
+                    drawPath(second, ink)
+                }
+
+                Glyph.SUN -> {
+                    drawCircle(ink, w * 0.26f, Offset(w * 0.5f, h * 0.5f))
+                    repeat(8) { index ->
+                        rotate(index * 45f, Offset(w * 0.5f, h * 0.5f)) {
+                            drawLine(
+                                ink,
+                                Offset(w * 0.5f, h * 0.02f),
+                                Offset(w * 0.5f, h * 0.14f),
+                                strokeWidth = w * 0.1f,
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            )
+                        }
+                    }
+                }
+
+                Glyph.MOON -> {
+                    // a crescent, cut rather than drawn: the same circle twice, offset
+                    val path = Path().apply {
+                        addOval(
+                            androidx.compose.ui.geometry.Rect(
+                                Offset(w * 0.06f, h * 0.06f),
+                                androidx.compose.ui.geometry.Size(w * 0.88f, h * 0.88f),
+                            ),
+                        )
+                    }
+                    val bite = Path().apply {
+                        addOval(
+                            androidx.compose.ui.geometry.Rect(
+                                Offset(w * 0.32f, h * -0.06f),
+                                androidx.compose.ui.geometry.Size(w * 0.86f, h * 0.86f),
+                            ),
+                        )
+                    }
+                    drawPath(
+                        Path().apply { op(path, bite, androidx.compose.ui.graphics.PathOperation.Difference) },
+                        ink,
+                    )
+                }
+
+                Glyph.TURNTABLE -> {
+                    // the deck, not just the record: a platter, its spindle, and the arm across it
+                    drawCircle(ink, w * 0.44f, Offset(w * 0.46f, h * 0.54f), style = Stroke(width = w * 0.1f))
+                    drawCircle(ink, w * 0.1f, Offset(w * 0.46f, h * 0.54f))
+                    drawLine(
+                        ink,
+                        Offset(w * 0.92f, h * 0.1f),
+                        Offset(w * 0.56f, h * 0.62f),
+                        strokeWidth = w * 0.1f,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                }
+
+                Glyph.DISC -> {
+                    drawCircle(ink, w * 0.48f, Offset(w * 0.5f, h * 0.5f), style = Stroke(width = w * 0.12f))
+                    drawCircle(ink, w * 0.13f, Offset(w * 0.5f, h * 0.5f))
+                }
+
+                Glyph.GEAR -> {
+                    drawCircle(ink, w * 0.28f, Offset(w * 0.5f, h * 0.5f), style = Stroke(width = w * 0.13f))
+                    val tooth = androidx.compose.ui.geometry.Size(w * 0.13f, h * 0.2f)
+                    repeat(8) { index ->
+                        rotate(index * 45f, Offset(w * 0.5f, h * 0.5f)) {
+                            drawRect(ink, Offset(w * 0.5f - tooth.width / 2f, 0f), tooth)
+                        }
+                    }
+                }
+
+                Glyph.DEVICE -> {
+                    val stroke = Stroke(width = w * 0.1f)
+                    drawRoundRect(
+                        ink,
+                        Offset(w * 0.26f, h * 0.06f),
+                        androidx.compose.ui.geometry.Size(w * 0.48f, h * 0.88f),
+                        androidx.compose.ui.geometry.CornerRadius(w * 0.12f, w * 0.12f),
+                        style = stroke,
+                    )
+                    drawCircle(ink, w * 0.05f, Offset(w * 0.5f, h * 0.76f))
+                }
+
+                Glyph.SEARCH -> {
+                    val stroke = Stroke(width = w * 0.13f)
+                    drawCircle(ink, w * 0.3f, Offset(w * 0.42f, h * 0.42f), style = stroke)
+                    drawLine(
+                        ink,
+                        Offset(w * 0.66f, h * 0.66f),
+                        Offset(w * 0.94f, h * 0.94f),
+                        strokeWidth = w * 0.13f,
+                    )
+                }
+
+                Glyph.REPLY -> {
+                    val stroke = Stroke(width = w * 0.12f)
+                    val path = Path().apply {
+                        moveTo(w * 0.38f, h * 0.16f)
+                        lineTo(w * 0.06f, h * 0.46f)
+                        lineTo(w * 0.38f, h * 0.76f)
+                        moveTo(w * 0.06f, h * 0.46f)
+                        lineTo(w * 0.7f, h * 0.46f)
+                        cubicTo(w * 0.98f, h * 0.46f, w * 0.98f, h * 0.94f, w * 0.62f, h * 0.94f)
+                    }
+                    drawPath(path, ink, style = stroke)
+                }
+
                 Glyph.BELL -> {
                     val path = Path().apply {
                         moveTo(w * 0.16f, h * 0.72f)
@@ -183,24 +356,5 @@ fun IconAction(
                     drawCircle(ink, w * 0.11f, Offset(w * 0.5f, h * 0.88f))
                 }
             }
-        }
-    }
-}
-
-/** The tab bar wears a gear rather than the word, so the row stays short. */
-@Composable
-fun Gear(active: Boolean) {
-    val glass = LocalGlass.current
-    val ink = if (active) Color.White else glass.ink
-    Canvas(Modifier.size(19.dp)) {
-        val radius = size.minDimension * 0.30f
-        val centre = Offset(size.width / 2f, size.height / 2f)
-        drawCircle(ink, radius, centre, style = Stroke(width = size.width * 0.13f))
-        val tooth = androidx.compose.ui.geometry.Size(size.width * 0.13f, size.height * 0.20f)
-        repeat(8) { index ->
-            rotate(index * 45f, centre) {
-                drawRect(ink, Offset(centre.x - tooth.width / 2f, 0f), tooth)
-            }
-        }
     }
 }

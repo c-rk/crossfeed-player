@@ -1,0 +1,370 @@
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>glass · service-tinted · compact cards · swipe + dot pill</div>
+<div class="dv-card" style="{{ themeVars }};width:812px;padding:26px;background:var(--board,#0a0a0b)">
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--bd,rgba(255,255,255,.14))">
+<div>
+<div style="font:700 10px/1 'Figtree',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:{{ accent }};margin-bottom:10px">turn two · the synthesis</div>
+<div style="font:400 34px/1 'Caprasimo',cursive;color:var(--t1,#f7f5f2);letter-spacing:-.015em">glass</div>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:9px">
+<div style="display:flex;gap:6px;align-items:center">
+<sc-for list="{{ chips }}" as="c" hint-placeholder-count="6"><div onClick="{{ setService }}" data-s="{{ c.key }}" style="{{ c.style }}">{{ c.label }}</div></sc-for>
+</div>
+<div style="display:flex;gap:5px;align-items:center;border-radius:999px;padding:3px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14))">
+<div onClick="{{ setMode }}" data-m="dark" style="{{ darkStyle }}">dark</div>
+<div onClick="{{ setMode }}" data-m="light" style="{{ lightStyle }}">light</div>
+</div>
+</div>
+</div>
+<p style="font:400 12.5px/1.7 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88));margin:0 0 22px;max-width:660px">panels are translucent and blurred over one soft accent bloom, so the app has depth without weight. radii drop from 28 to 20, padding tightens, and every card carries a 1px top highlight instead of a shadow. figures are set flush left like a poster; the lyric line is set like a book.</p>
+
+<div style="display:grid;grid-template-columns:360px 360px;gap:28px 32px">
+
+<!-- listening -->
+<div>
+<p class="cap"><b>listening</b> — one figure, then 1b's stat block, inside one glass card</p>
+<div data-screen-label="2a listening" style="--a:{{ accent }};--as:{{ accentSoft }};width:360px;height:740px;overflow:hidden;position:relative;background:var(--bg,#0b0b0c);color:var(--t1,#f7f5f2);font-family:'Figtree',sans-serif;border-radius:30px;display:flex;flex-direction:column">
+  <div style="position:absolute;inset:-40% -30% auto -30%;height:420px;background:radial-gradient(closest-side, var(--as,rgba(255,55,95,.5)), transparent 70%);pointer-events:none"></div>
+  <div style="position:absolute;left:-30%;bottom:-10%;width:340px;height:340px;background:radial-gradient(closest-side, var(--sage-b,rgba(174,191,146,.28)), transparent 70%);pointer-events:none"></div>
+  <div style="position:relative;display:flex;justify-content:space-between;padding:13px 22px 0;font:600 10px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))"><span>9:41</span><span>▮▮▮ ▰</span></div>
+  <div style="position:relative;flex:1;overflow:hidden;padding:12px 18px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 4px">
+      <div style="font:400 25px/1 'Caprasimo',cursive;letter-spacing:-.015em;white-space:nowrap">listening</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="height:30px;display:flex;align-items:center;gap:7px;border-radius:999px;padding:0 11px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));backdrop-filter:blur(14px)"><span style="width:6px;height:6px;border-radius:50%;background:var(--a,#ff375f)"></span><span style="font:700 10px/1 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88));white-space:nowrap">{{ serviceName }}</span></div>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));display:grid;place-items:center;font-size:13px;color:var(--t2,rgba(247,245,242,.88))">⌕</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;padding:0 4px">
+      <div onClick="{{ setPeriodD }}" data-p="today" style="cursor:pointer;border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:{{ dTodayBg }};color:{{ dTodayC }};border:1px solid {{ dTodayBd }}">today</div>
+      <div onClick="{{ setPeriodD }}" data-p="week" style="cursor:pointer;border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:{{ dWeekBg }};color:{{ dWeekC }};border:1px solid {{ dWeekBd }}">week</div>
+      <div onClick="{{ setPeriodD }}" data-p="month" style="cursor:pointer;border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:{{ dMonthBg }};color:{{ dMonthC }};border:1px solid {{ dMonthBd }}">month</div>
+      <div onClick="{{ setPeriodD }}" data-p="all" style="cursor:pointer;border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:{{ dAllBg }};color:{{ dAllC }};border:1px solid {{ dAllBd }}">all time</div>
+    </div>
+    <div style="border-radius:22px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:16px 17px 14px;margin-bottom:11px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font:400 54px/.9 'Caprasimo',cursive;letter-spacing:-.03em;font-feature-settings:'tnum'">{{ aTime }}</div>
+          <div style="font:700 9.5px/1 'Figtree',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--a,#ff375f);margin-top:9px">hours · {{ aPeriodWord }}</div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:44px;width:104px">
+          <div style="flex:1;height:38%;border-radius:3px;background:var(--line,rgba(247,245,242,.3))"></div><div style="flex:1;height:56%;border-radius:3px;background:var(--line,rgba(247,245,242,.3))"></div><div style="flex:1;height:30%;border-radius:3px;background:var(--line,rgba(247,245,242,.3))"></div><div style="flex:1;height:78%;border-radius:3px;background:var(--line,rgba(247,245,242,.3))"></div><div style="flex:1;height:100%;border-radius:3px;background:var(--a,#ff375f)"></div><div style="flex:1;height:64%;border-radius:3px;background:var(--line,rgba(247,245,242,.3))"></div><div style="flex:1;height:44%;border-radius:3px;background:var(--line,rgba(247,245,242,.3))"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--bd,rgba(255,255,255,.14));padding-top:12px">
+        <div><div style="font:400 22px/1 'Caprasimo',cursive;font-feature-settings:'tnum'">{{ aPlays }}</div><div style="font:700 8.5px/1 'Figtree',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--t3,rgba(247,245,242,.76));margin-top:6px">plays</div></div>
+        <div style="padding-left:13px;border-left:1px solid var(--bd,rgba(255,255,255,.14))"><div style="font:400 22px/1 'Caprasimo',cursive;font-feature-settings:'tnum'">{{ aTracks }}</div><div style="font:700 8.5px/1 'Figtree',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--t3,rgba(247,245,242,.76));margin-top:6px">tracks</div></div>
+        <div style="padding-left:13px;border-left:1px solid var(--bd,rgba(255,255,255,.14))"><div style="font:400 22px/1 'Caprasimo',cursive;font-feature-settings:'tnum'">{{ aArtists }}</div><div style="font:700 8.5px/1 'Figtree',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--t3,rgba(247,245,242,.76));margin-top:6px">artists</div></div>
+      </div>
+    </div>
+    <div style="border-radius:22px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:12px 13px;display:flex;gap:12px;align-items:center;margin-bottom:11px">
+      <div style="width:46px;height:46px;flex:none;border-radius:15px;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 17px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">H</div>
+      <div style="flex:1;min-width:0">
+        <div style="font:700 13.5px/1.2 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Hum</div>
+        <div style="font:400 10.5px/1.4 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">murtaza qizilbash · brave</div>
+        <div style="height:3px;border-radius:999px;background:var(--line,rgba(247,245,242,.3));margin-top:8px;position:relative"><div style="position:absolute;left:0;top:0;height:3px;border-radius:999px;width:34%;background:var(--a,#ff375f)"></div></div>
+      </div>
+      <div style="width:38px;height:38px;flex:none;border-radius:50%;background:var(--a,#ff375f);display:grid;place-items:center;color:#0b0b0c;font-size:13px">▶</div>
+    </div>
+    <div style="border-radius:18px;background:var(--sage-t,rgba(174,191,146,.18));border:1px solid var(--sage-b,rgba(174,191,146,.28));padding:11px 14px;display:flex;gap:10px;align-items:baseline;margin-bottom:16px">
+      <span style="flex:1;font:italic 400 13px/1.45 'Lora',serif;color:var(--t1,#f7f5f2)">"and the city hums back at me…"</span>
+      <span style="font:700 9px/1 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--sage,#aebf92);white-space:nowrap">sing along</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:0 4px">
+      <div style="font:400 16px/1 'Caprasimo',cursive;white-space:nowrap">the day so far</div>
+      <div style="display:flex;gap:4px;align-items:center;border-radius:999px;padding:3px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14))">
+        <div onClick="{{ setListView }}" data-v="list" style="{{ listListStyle }}">☰</div>
+        <div onClick="{{ setListView }}" data-v="grid" style="{{ listGridStyle }}">▦</div>
+      </div>
+    </div>
+    <sc-if value="{{ listIsRows }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <div style="display:flex;gap:10px;align-items:center;padding:7px 5px"><div style="width:30px;height:30px;flex:none;border-radius:9px;background:linear-gradient(150deg,#5c2a30,#2a1418)"></div><div style="flex:1;min-width:0;font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Hum <span style="font-weight:400;color:var(--t3,rgba(247,245,242,.76))">· murtaza qizilbash</span></div><div style="font:600 10px/1 'Figtree',sans-serif;font-feature-settings:'tnum';color:var(--t3,rgba(247,245,242,.76));white-space:nowrap">14:22</div><div style="font:700 9.5px/1;color:var(--sage,#aebf92);white-space:nowrap;width:32px;text-align:right">100%</div></div>
+        <div style="display:flex;gap:10px;align-items:center;padding:7px 5px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:30px;height:30px;flex:none;border-radius:9px;background:linear-gradient(150deg,#3d472b,#1c2015)"></div><div style="flex:1;min-width:0;font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Kannukkul Kannai <span style="font-weight:400;color:var(--t3,rgba(247,245,242,.76))">· a. r. rahman</span></div><div style="font:600 10px/1 'Figtree',sans-serif;font-feature-settings:'tnum';color:var(--t3,rgba(247,245,242,.76));white-space:nowrap">13:58</div><div style="font:700 9.5px/1;color:var(--t3,rgba(247,245,242,.76));white-space:nowrap;width:32px;text-align:right">41%</div></div>
+        <div style="display:flex;gap:10px;align-items:center;padding:7px 5px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:30px;height:30px;flex:none;border-radius:9px;background:linear-gradient(150deg,#4a2a12,#1f1208)"></div><div style="flex:1;min-width:0;font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Co2 <span style="font-weight:400;color:var(--t3,rgba(247,245,242,.76))">· prateek kuhad</span></div><div style="font:600 10px/1 'Figtree',sans-serif;font-feature-settings:'tnum';color:var(--t3,rgba(247,245,242,.76));white-space:nowrap">07:12</div><div style="font:700 9.5px/1;color:var(--sage,#aebf92);white-space:nowrap;width:32px;text-align:right">×3</div></div>
+        <div style="display:flex;gap:10px;align-items:center;padding:7px 5px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:30px;height:30px;flex:none;border-radius:9px;background:linear-gradient(150deg,#2f3238,#15171a)"></div><div style="flex:1;min-width:0;font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Priyotama <span style="font-weight:400;color:var(--t3,rgba(247,245,242,.76))">· anupam roy</span></div><div style="font:600 10px/1 'Figtree',sans-serif;font-feature-settings:'tnum';color:var(--t3,rgba(247,245,242,.76));white-space:nowrap">06:40</div><div style="font:700 9.5px/1;color:var(--t3,rgba(247,245,242,.76));white-space:nowrap;width:32px;text-align:right">88%</div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ listIsGrid }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px 9px">
+        <div><div style="position:relative;aspect-ratio:1;border-radius:14px;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 19px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">H<div style="position:absolute;right:5px;bottom:5px;font:700 8.5px/1 'Figtree',sans-serif;color:var(--sage,#aebf92);background:var(--scrim,rgba(11,11,12,.6));border-radius:999px;padding:4px 6px">100%</div></div><div style="font:700 10.5px/1.3 'Figtree',sans-serif;margin-top:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Hum</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">14:22</div></div>
+        <div><div style="position:relative;aspect-ratio:1;border-radius:14px;background:linear-gradient(150deg,#3d472b,#1c2015);display:grid;place-items:center;font:400 19px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">K<div style="position:absolute;right:5px;bottom:5px;font:700 8.5px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));background:var(--scrim,rgba(11,11,12,.6));border-radius:999px;padding:4px 6px">41%</div></div><div style="font:700 10.5px/1.3 'Figtree',sans-serif;margin-top:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Kannukkul…</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">13:58</div></div>
+        <div><div style="position:relative;aspect-ratio:1;border-radius:14px;background:linear-gradient(150deg,#4a2a12,#1f1208);display:grid;place-items:center;font:400 19px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">C<div style="position:absolute;right:5px;bottom:5px;font:700 8.5px/1 'Figtree',sans-serif;color:var(--sage,#aebf92);background:var(--scrim,rgba(11,11,12,.6));border-radius:999px;padding:4px 6px">×3</div></div><div style="font:700 10.5px/1.3 'Figtree',sans-serif;margin-top:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Co2</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">07:12</div></div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="position:relative;padding:10px 14px 0">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(24px);padding:8px 10px;display:flex;gap:11px;align-items:center">
+      <div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#5c2a30,#2a1418)"></div>
+      <div style="flex:1;min-width:0"><div style="font:700 12px/1.2 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Hum</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76))">paused · {{ serviceName }}</div></div>
+      <div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--a,#ff375f);display:grid;place-items:center;color:#0b0b0c;font-size:11px">▶</div>
+      <div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));display:grid;place-items:center;font-size:11px">▶▶</div>
+    </div>
+  </div>
+  <div style="position:relative;display:flex;justify-content:center;padding:10px 0 16px">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));backdrop-filter:blur(20px);padding:9px 14px;display:flex;gap:8px;align-items:center">
+      <div style="width:26px;height:7px;border-radius:999px;background:var(--a,#ff375f)"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- auxshare -->
+<div>
+<p class="cap"><b>auxshare</b> — tap the sage <b>3</b> for the tray, tap the first card for reactions</p>
+<div data-screen-label="2a auxshare" style="--a:{{ accent }};--as:{{ accentSoft }};width:360px;height:740px;overflow:hidden;position:relative;background:var(--bg,#0b0b0c);color:var(--t1,#f7f5f2);font-family:'Figtree',sans-serif;border-radius:30px;display:flex;flex-direction:column">
+  <div style="position:absolute;inset:-40% -30% auto -30%;height:420px;background:radial-gradient(closest-side, rgba(174,191,146,.3), transparent 70%);pointer-events:none"></div>
+  <div style="position:absolute;right:-25%;bottom:-8%;width:320px;height:320px;background:radial-gradient(closest-side, var(--as,rgba(255,55,95,.5)), transparent 70%);pointer-events:none"></div>
+  <div style="position:relative;display:flex;justify-content:space-between;padding:13px 22px 0;font:600 10px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))"><span>9:41</span><span>▮▮▮ ▰</span></div>
+  <div style="position:relative;flex:1;overflow:hidden;padding:12px 18px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 4px">
+      <div><div style="font:400 25px/1 'Caprasimo',cursive;letter-spacing:-.015em;white-space:nowrap">the aux</div><div style="font:400 10.5px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:6px">@rc · four people, no audience</div></div>
+      <div onClick="{{ toggleNotifD }}" style="cursor:pointer;width:36px;height:36px;border-radius:50%;background:#aebf92;color:#141410;display:grid;place-items:center;font:400 16px 'Caprasimo',cursive">3</div>
+    </div>
+    <sc-if value="{{ notifD }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:14px 15px;margin-bottom:12px;animation:rise .2s ease both">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px"><div style="font:400 16px/1 'Caprasimo',cursive">the tray</div><div onClick="{{ toggleNotifD }}" style="cursor:pointer;font:700 9.5px/1 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--t3,rgba(247,245,242,.76))">clear</div></div>
+        <div style="display:flex;gap:11px;align-items:center;padding-bottom:11px"><div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 13px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">S</div><div style="flex:1;min-width:0"><div style="font:600 12px/1.4 'Figtree',sans-serif">@soumadeep called <b>Priyotama</b> a banger</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px">2h</div></div></div>
+        <div style="display:flex;gap:11px;align-items:center;padding:11px 0;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#3d472b,#1c2015);display:grid;place-items:center;font:400 13px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">P</div><div style="flex:1;min-width:0"><div style="font:600 12px/1.4 'Figtree',sans-serif">@pranav answered with <b>Redbone</b></div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px">5h</div></div><div style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--a,#ff375f);display:grid;place-items:center;color:#0b0b0c;font-size:10px">▶</div></div>
+        <div style="display:flex;gap:11px;align-items:center;padding-top:11px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#4a2a12,#1f1208);display:grid;place-items:center;font:400 13px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">R</div><div style="flex:1;min-width:0"><div style="font:600 12px/1.4 'Figtree',sans-serif">@rahul played 14 of your saves</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px">yesterday</div></div></div>
+      </div>
+    </sc-if>
+    <div style="display:flex;gap:11px;margin-bottom:14px;padding:0 2px">
+      <div style="text-align:center;width:70px"><div style="width:60px;height:60px;border-radius:50%;background:conic-gradient(#aebf92 0 72%,var(--line,rgba(247,245,242,.3)) 72% 100%);display:grid;place-items:center;margin:0 auto"><div style="width:51px;height:51px;border-radius:50%;background:var(--p3,var(--p3,#1c1c1f));display:grid;place-items:center;font:400 18px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">N</div></div><div style="font:700 10.5px/1.3 'Figtree',sans-serif;margin-top:7px">@rahul</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76));overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Metallica</div></div>
+      <div style="text-align:center;width:70px"><div style="width:60px;height:60px;border-radius:50%;background:conic-gradient(#aebf92 0 34%,var(--line,rgba(247,245,242,.3)) 34% 100%);display:grid;place-items:center;margin:0 auto"><div style="width:51px;height:51px;border-radius:50%;background:var(--p3,var(--p3,#1c1c1f));display:grid;place-items:center;font:400 18px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">S</div></div><div style="font:700 10.5px/1.3 'Figtree',sans-serif;margin-top:7px">@pranav</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76));overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Sapta Saga…</div></div>
+      <div style="text-align:center;width:70px;opacity:.5"><div style="width:60px;height:60px;border-radius:50%;border:1.5px dashed var(--dot,rgba(247,245,242,.5));display:grid;place-items:center;margin:0 auto;font-size:17px;color:var(--t3,rgba(247,245,242,.76))">+</div><div style="font:700 10.5px/1.3 'Figtree',sans-serif;margin-top:7px">add</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:0 4px">
+      <div style="display:flex;gap:9px;align-items:baseline"><div style="font:400 16px/1 'Caprasimo',cursive;white-space:nowrap">the feed</div><div style="font:600 10px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));white-space:nowrap">8 today</div></div>
+      <div style="display:flex;gap:4px;align-items:center;border-radius:999px;padding:3px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14))">
+        <div onClick="{{ setAuxView }}" data-v="list" style="{{ auxListStyle }}">☰</div>
+        <div onClick="{{ setAuxView }}" data-v="grid" style="{{ auxGridStyle }}">▦</div>
+      </div>
+    </div>
+    <sc-if value="{{ auxIsRows }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <div onClick="{{ toggleReactD }}" style="cursor:pointer;display:flex;gap:11px;align-items:center;padding:8px 5px"><div style="width:40px;height:40px;flex:none;border-radius:12px;background:linear-gradient(150deg,#2f3238,#15171a)"></div><div style="flex:1;min-width:0"><div style="font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Nothing Else Matters</div><div style="font:400 9.5px/1.35;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">metallica · @rahul · 24m</div></div><div style="display:flex;align-items:center;flex:none"><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px">🔥</div><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px;margin-left:-7px">🎧</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-left:6px">+2</div></div></div>
+        <div style="display:flex;gap:11px;align-items:center;padding:8px 5px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:40px;height:40px;flex:none;border-radius:12px;background:linear-gradient(150deg,#3d472b,#1c2015)"></div><div style="flex:1;min-width:0"><div style="font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Take My Mind</div><div style="font:400 9.5px/1.35;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">wizthemc · @kl · 25m</div></div><div style="display:flex;align-items:center;flex:none"><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px">💾</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-left:6px">you</div></div></div>
+        <div style="display:flex;gap:11px;align-items:center;padding:8px 5px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:40px;height:40px;flex:none;border-radius:12px;background:linear-gradient(150deg,#e8e2d6,#9a9488)"></div><div style="flex:1;min-width:0"><div style="font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Redbone</div><div style="font:400 9.5px/1.35;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">childish gambino · @pranav · 1h</div></div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--sage,#aebf92);flex:none;white-space:nowrap">↩ answered</div></div>
+        <div style="display:flex;gap:11px;align-items:center;padding:8px 5px;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="width:40px;height:40px;flex:none;border-radius:12px;background:linear-gradient(150deg,#5c2a30,#2a1418)"></div><div style="flex:1;min-width:0"><div style="font:700 12px/1.25 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Priyotama</div><div style="font:400 9.5px/1.35;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">anupam roy · @soumadeep · 2h</div></div><div style="display:flex;align-items:center;flex:none"><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px">🔥</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-left:6px">1</div></div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ auxIsGrid }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div onClick="{{ toggleReactD }}" style="cursor:pointer;border-radius:20px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));padding:10px"><div style="aspect-ratio:1;border-radius:13px;background:linear-gradient(150deg,#2f3238,#15171a);display:grid;place-items:center;font:400 22px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">N</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Nothing Else…</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">@rahul · 24m</div><div style="display:flex;align-items:center;margin-top:7px"><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px">🔥</div><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px;margin-left:-7px">🎧</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-left:6px">+2</div></div></div>
+        <div style="border-radius:20px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));padding:10px"><div style="aspect-ratio:1;border-radius:13px;background:linear-gradient(150deg,#3d472b,#1c2015);display:grid;place-items:center;font:400 22px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">T</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Take My Mind</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">@kl · 25m</div><div style="display:flex;align-items:center;margin-top:7px"><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px">💾</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-left:6px">you kept it</div></div></div>
+        <div style="border-radius:20px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));padding:10px"><div style="aspect-ratio:1;border-radius:13px;background:linear-gradient(150deg,#e8e2d6,#9a9488);display:grid;place-items:center;font:400 22px 'Caprasimo',cursive;color:rgba(11,11,12,.4)">R</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Redbone</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">@pranav · 1h</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--sage,#aebf92);margin-top:7px">↩ answered you</div></div>
+        <div style="border-radius:20px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));padding:10px"><div style="aspect-ratio:1;border-radius:13px;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 22px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">P</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Priyotama</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76));margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">@soumadeep · 2h</div><div style="display:flex;align-items:center;margin-top:7px"><div style="width:20px;height:20px;border-radius:50%;background:var(--p3,#1c1c1f);border:1.5px solid var(--bg,#0b0b0c);display:grid;place-items:center;font-size:9px">🔥</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-left:6px">1</div></div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ reactD }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(24px);padding:14px 15px;margin-top:10px;animation:rise .18s ease both">
+        <div style="font:400 15px/1 'Caprasimo',cursive;margin-bottom:11px">hold to react</div>
+        <div style="display:flex;justify-content:space-between;padding:0 2px">
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:50%;background:var(--a,#ff375f);display:grid;place-items:center;font-size:20px">🔥</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:7px">a banger</div></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));display:grid;place-items:center;font-size:20px">🎧</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:7px">on it now</div></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));display:grid;place-items:center;font-size:20px">💾</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:7px">keeping it</div></div>
+          <div style="text-align:center"><div style="width:48px;height:48px;border-radius:50%;background:#aebf92;color:#141410;display:grid;place-items:center;font-size:18px">↩</div><div style="font:700 9px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:7px">reply</div></div>
+        </div>
+        <div style="font:400 10.5px/1.55 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:11px">four, thumb-sized, always the same four. the reply sends a song back instead of a face.</div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="position:relative;padding:10px 14px 0">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(24px);padding:8px 10px;display:flex;gap:11px;align-items:center">
+      <div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#4a2a12,#1f1208)"></div>
+      <div style="flex:1;min-width:0"><div style="font:700 12px/1.2 'Figtree',sans-serif">Co2</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76))">prateek kuhad</div></div>
+      <div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--a,#ff375f);display:grid;place-items:center;color:#0b0b0c;font-size:11px">▶</div>
+      <div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));display:grid;place-items:center;font-size:11px">▶▶</div>
+    </div>
+  </div>
+  <div style="position:relative;display:flex;justify-content:center;padding:10px 0 16px">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));backdrop-filter:blur(20px);padding:9px 14px;display:flex;gap:8px;align-items:center">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:26px;height:7px;border-radius:999px;background:var(--a,#ff375f)"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- player -->
+<div>
+<p class="cap"><b>player</b> — glass search, records row, compact grid</p>
+<div data-screen-label="2a player" style="--a:{{ accent }};--as:{{ accentSoft }};width:360px;height:740px;overflow:hidden;position:relative;background:var(--bg,#0b0b0c);color:var(--t1,#f7f5f2);font-family:'Figtree',sans-serif;border-radius:30px;display:flex;flex-direction:column">
+  <div style="position:absolute;inset:-40% -30% auto -30%;height:420px;background:radial-gradient(closest-side, var(--as,rgba(255,55,95,.5)), transparent 70%);pointer-events:none"></div>
+  <div style="position:relative;display:flex;justify-content:space-between;padding:13px 22px 0;font:600 10px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))"><span>9:41</span><span>▮▮▮ ▰</span></div>
+  <div style="position:relative;flex:1;overflow:hidden;padding:12px 0 0">
+    <div style="padding:0 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:13px">
+      <div><div style="font:400 25px/1 'Caprasimo',cursive;letter-spacing:-.015em;white-space:nowrap">your shelf</div><div style="font:400 10.5px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:6px;font-feature-settings:'tnum'">307 albums · offline · yours</div></div>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));display:grid;place-items:center;font-size:12px;color:var(--t2,rgba(247,245,242,.88))">▦</div>
+    </div>
+    <div style="margin:0 22px 13px;border-radius:999px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(20px);padding:12px 16px;display:flex;gap:10px;align-items:center">
+      <span style="color:var(--a,#ff375f);font-size:12px">⌕</span><span style="font:400 12px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))">search here, or all of music</span>
+    </div>
+    <div style="display:flex;gap:6px;padding:0 22px;margin-bottom:16px">
+      <div style="border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--p2,rgba(255,255,255,.09));color:var(--t2,rgba(247,245,242,.88))">songs</div>
+      <div style="border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:var(--a,#ff375f);border:1px solid transparent;color:#0b0b0c">albums</div>
+      <div style="border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--p2,rgba(255,255,255,.09));color:var(--t2,rgba(247,245,242,.88))">artists</div>
+      <div style="border-radius:999px;padding:7px 13px;font:600 11px/1 'Figtree',sans-serif;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--p2,rgba(255,255,255,.09));color:var(--t2,rgba(247,245,242,.88))">folders</div>
+    </div>
+    <div style="font:400 14px/1 'Caprasimo',cursive;padding:0 22px;margin-bottom:11px">back on the turntable</div>
+    <div style="display:flex;gap:12px;padding:0 22px 16px;overflow:hidden">
+      <div style="width:96px;flex:none"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(from 210deg,#5c2a30,#2a1418,#5c2a30);display:grid;place-items:center"><div style="width:26px;height:26px;border-radius:50%;background:var(--bg,#0b0b0c);border:1px solid var(--bd,rgba(255,255,255,.14))"></div></div><div style="font:700 11.5px/1.3 'Figtree',sans-serif;margin-top:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Brave</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76))">9 tracks</div></div>
+      <div style="width:96px;flex:none"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(from 150deg,#3d472b,#1c2015,#3d472b);display:grid;place-items:center"><div style="width:26px;height:26px;border-radius:50%;background:var(--bg,#0b0b0c);border:1px solid var(--bd,rgba(255,255,255,.14))"></div></div><div style="font:700 11.5px/1.3 'Figtree',sans-serif;margin-top:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">96 (Theme)</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76))">1 track</div></div>
+      <div style="width:96px;flex:none"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(from 30deg,#4a2a12,#1f1208,#4a2a12);display:grid;place-items:center"><div style="width:26px;height:26px;border-radius:50%;background:var(--bg,#0b0b0c);border:1px solid var(--bd,rgba(255,255,255,.14))"></div></div><div style="font:700 11.5px/1.3 'Figtree',sans-serif;margin-top:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Cold/Mess</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76))">4 tracks</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 22px;margin-bottom:11px"><div style="font:400 14px/1 'Caprasimo',cursive">everything, a — z</div><div style="font:600 9.5px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))">newest first ⌄</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px 11px;padding:0 22px">
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#2f3238,#15171a);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">10</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">10</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">2 tracks</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">20</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">20 Biggest…</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">1 track</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#3d472b,#1c2015);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">21</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">21st Cent…</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">1 track</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#4a2a12,#1f1208);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">24</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">24</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">2 tracks</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#e8e2d6,#9a9488);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:rgba(11,11,12,.35)">R</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A Rush of…</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">1 track</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#33363c,#171a1d);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">C</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Cinema Pa…</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">12 tracks</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">B</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Brave</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">9 tracks</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#3d472b,#1c2015);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">96</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">96 (Theme)</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">1 track</div></div>
+      <div><div style="aspect-ratio:1;border-radius:16px;background:linear-gradient(150deg,#4a2a12,#1f1208);display:grid;place-items:center;font:400 21px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">C</div><div style="font:700 11px/1.3 'Figtree',sans-serif;margin-top:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Cold/Mess</div><div style="font:400 9px/1.3;color:var(--t3,rgba(247,245,242,.76))">4 tracks</div></div>
+    </div>
+  </div>
+  <div style="position:relative;padding:10px 14px 0">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(24px);padding:8px 10px;display:flex;gap:11px;align-items:center">
+      <div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#4a2a12,#1f1208)"></div>
+      <div style="flex:1;min-width:0"><div style="font:700 12px/1.2 'Figtree',sans-serif">Co2</div><div style="font:400 9.5px/1.3;color:var(--t3,rgba(247,245,242,.76))">prateek kuhad</div></div>
+      <div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--a,#ff375f);display:grid;place-items:center;color:#0b0b0c;font-size:11px">▶</div>
+      <div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));display:grid;place-items:center;font-size:11px">▶▶</div>
+    </div>
+  </div>
+  <div style="position:relative;display:flex;justify-content:center;padding:10px 0 16px">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));backdrop-filter:blur(20px);padding:9px 14px;display:flex;gap:8px;align-items:center">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:26px;height:7px;border-radius:999px;background:var(--a,#ff375f)"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- settings -->
+<div>
+<p class="cap"><b>settings</b> — the service picker lives here, and it <b>is</b> the theme</p>
+<div data-screen-label="2a settings" style="--a:{{ accent }};--as:{{ accentSoft }};width:360px;height:740px;overflow:hidden;position:relative;background:var(--bg,#0b0b0c);color:var(--t1,#f7f5f2);font-family:'Figtree',sans-serif;border-radius:30px;display:flex;flex-direction:column">
+  <div style="position:absolute;inset:-40% -30% auto -30%;height:400px;background:radial-gradient(closest-side, var(--as,rgba(255,55,95,.5)), transparent 70%);pointer-events:none"></div>
+  <div style="position:relative;display:flex;justify-content:space-between;padding:13px 22px 0;font:600 10px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))"><span>9:41</span><span>▮▮▮ ▰</span></div>
+  <div style="position:relative;flex:1;overflow:hidden;padding:12px 18px 0">
+    <div style="padding:0 4px;margin-bottom:12px">
+      <div style="font:400 25px/1 'Caprasimo',cursive;letter-spacing:-.015em">your call</div>
+      <div style="font:400 11px/1.5 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:6px">turn on only what buys you something.</div>
+    </div>
+    <div style="border-radius:22px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:12px 13px 13px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+        <div style="font:700 9px/1 'Figtree',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--a,#ff375f)">where music comes from</div>
+        <div style="display:flex;gap:4px;align-items:center;border-radius:999px;padding:3px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14))">
+          <div onClick="{{ setMode }}" data-m="dark" style="{{ darkMiniStyle }}">dark</div>
+          <div onClick="{{ setMode }}" data-m="light" style="{{ lightMiniStyle }}">light</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;padding:2px 0 4px">
+        <div style="position:relative;width:250px;height:250px;border-radius:50%;background:radial-gradient(closest-side, var(--p2,rgba(255,255,255,.09)), var(--p0,rgba(255,255,255,.05)));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 2px 14px rgba(0,0,0,.32)">
+          <sc-for list="{{ dialTicks }}" as="t" hint-placeholder-count="12"><div style="{{ t.style }}"></div></sc-for>
+          <div style="position:absolute;left:50%;top:50%;width:118px;height:118px;margin:-59px 0 0 -59px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));display:grid;place-items:center;text-align:center;padding:0 12px">
+            <div>
+              <div style="font:700 13px/1.2 'Figtree',sans-serif;color:var(--t1,#f7f5f2)">{{ primaryName }}</div>
+              <div style="font:400 9.5px/1.3 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:5px">{{ routeSummary }}</div>
+            </div>
+          </div>
+          <sc-for list="{{ dial }}" as="d" hint-placeholder-count="6"><div onClick="{{ toggleRoute }}" data-s="{{ d.key }}" style="{{ d.style }}"><div style="{{ d.glyphStyle }}">{{ d.glyph }}</div><div style="{{ d.rankStyle }}">{{ d.rank }}</div></div></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
+        <sc-for list="{{ routeChips }}" as="r" hint-placeholder-count="2"><div onClick="{{ promoteRoute }}" data-s="{{ r.key }}" style="{{ r.style }}">{{ r.label }}</div></sc-for>
+      </div>
+      <div style="font:400 10px/1.5 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76));margin-top:8px">tap a logo to add or drop it · tap a chip to make it first. one is a shortcut, several is a chooser sheet.</div>
+    </div>
+
+    <div style="border-radius:22px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:4px 14px;margin-bottom:9px">
+      <div style="display:flex;gap:12px;align-items:center;padding:11px 0"><div style="flex:1"><div style="font:700 12.5px/1.25 'Figtree',sans-serif">your music files</div><div style="font:400 10px/1.45;color:var(--t3,rgba(247,245,242,.76));margin-top:3px">so the shelf isn't empty</div></div><div style="width:40px;height:23px;border-radius:999px;background:var(--a,#ff375f);position:relative;flex:none"><div style="position:absolute;right:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--bg,#0b0b0c)"></div></div></div>
+      <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="flex:1"><div style="font:700 12.5px/1.25 'Figtree',sans-serif">live control</div><div style="font:400 10px/1.45;color:var(--t3,rgba(247,245,242,.76));margin-top:3px">scrubber, timed lyrics, and pausing {{ serviceName }} from in here</div></div><div style="width:40px;height:23px;border-radius:999px;background:var(--a,#ff375f);position:relative;flex:none"><div style="position:absolute;right:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--bg,#0b0b0c)"></div></div></div>
+      <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--p2,rgba(255,255,255,.09))"><div style="flex:1"><div style="font:700 12.5px/1.25 'Figtree',sans-serif">browser capture</div><div style="font:400 10px/1.45;color:var(--t3,rgba(247,245,242,.76));margin-top:3px">a tab must prove it's music first</div></div><div style="width:40px;height:23px;border-radius:999px;background:var(--off,rgba(255,255,255,.22));position:relative;flex:none"><div style="position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--t3,rgba(247,245,242,.76))"></div></div></div>
+    </div>
+    <div style="border-radius:22px;background:var(--sage-t,rgba(174,191,146,.18));border:1px solid var(--sage-b,rgba(174,191,146,.28));padding:4px 14px;margin-bottom:9px">
+      <div style="display:flex;gap:12px;align-items:center;padding:11px 0"><div style="flex:1"><div style="font:700 12.5px/1.25 'Figtree',sans-serif">share what i play</div><div style="font:400 10px/1.45;color:var(--t3,rgba(247,245,242,.76));margin-top:3px">the track and how long — never the diary</div></div><div style="width:40px;height:23px;border-radius:999px;background:#aebf92;position:relative;flex:none"><div style="position:absolute;right:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--bg,#0b0b0c)"></div></div></div>
+      <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--sage-t,rgba(174,191,146,.18))"><div style="flex:1"><div style="font:700 12.5px/1.25 'Figtree',sans-serif">find me nearby</div><div style="font:400 10px/1.45;color:var(--t3,rgba(247,245,242,.76));margin-top:3px">a distance band, ~110 m · pause sharing for an hour</div></div><div style="width:40px;height:23px;border-radius:999px;background:var(--off,rgba(255,255,255,.22));position:relative;flex:none"><div style="position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--t3,rgba(247,245,242,.76))"></div></div></div>
+    </div>
+    <div style="border-radius:22px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:11px"><div><div style="font:700 12px/1.3 'Figtree',sans-serif">870 rows on disk</div><div style="font:400 10px/1.4;color:var(--t3,rgba(247,245,242,.76));margin-top:2px">eleven sheets, to downloads</div></div><div style="font:400 24px/1 'Caprasimo',cursive;font-feature-settings:'tnum'">14.9<span style="font-size:11px;color:var(--t3,rgba(247,245,242,.76))">mb</span></div></div>
+      <div style="display:flex;gap:8px"><div style="flex:1;background:var(--a,#ff375f);color:#0b0b0c;border-radius:999px;padding:12px 0;text-align:center;font:700 11px/1 'Figtree',sans-serif">export</div><div style="flex:1;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));border-radius:999px;padding:11px 0;text-align:center;font:700 11px/1 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88))">import</div></div>
+    </div>
+  </div>
+  <div style="position:relative;display:flex;justify-content:center;padding:10px 0 16px">
+    <div style="border-radius:999px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));backdrop-filter:blur(20px);padding:9px 14px;display:flex;gap:8px;align-items:center">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(247,245,242,.5))"></div>
+      <div style="width:26px;height:7px;border-radius:999px;background:var(--a,#ff375f)"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- sheet -->
+<div>
+<p class="cap"><b>the sheet</b> — 1a's sing-along, set as a book, on glass</p>
+<div data-screen-label="2a sheet" style="--a:{{ accent }};--as:{{ accentSoft }};width:360px;height:740px;overflow:hidden;position:relative;background:var(--bg,#0b0b0c);color:var(--t1,#f7f5f2);font-family:'Figtree',sans-serif;border-radius:30px;display:flex;flex-direction:column">
+  <div style="position:absolute;inset:-30% -30% auto -30%;height:480px;background:radial-gradient(closest-side, var(--as,rgba(255,55,95,.5)), transparent 70%);pointer-events:none"></div>
+  <div style="position:relative;display:flex;justify-content:center;padding:13px 0 0"><div style="width:42px;height:4px;border-radius:999px;background:var(--dot,rgba(247,245,242,.5))"></div></div>
+  <div style="position:relative;flex:1;padding:16px 22px 0;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;border-radius:999px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));backdrop-filter:blur(20px);padding:4px;margin-bottom:16px">
+      <div style="flex:1;text-align:center;border-radius:999px;padding:8px 0;font:700 10.5px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))">now</div>
+      <div style="flex:1.2;text-align:center;border-radius:999px;padding:8px 0;font:700 10.5px/1 'Figtree',sans-serif;background:var(--a,#ff375f);color:#0b0b0c">sing along</div>
+      <div style="flex:1;text-align:center;border-radius:999px;padding:8px 0;font:700 10.5px/1 'Figtree',sans-serif;color:var(--t3,rgba(247,245,242,.76))">queue</div>
+    </div>
+    <div style="display:flex;gap:13px;align-items:center;border-radius:22px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(22px);padding:12px 13px;margin-bottom:14px">
+      <div style="width:50px;height:50px;flex:none;border-radius:16px;background:linear-gradient(150deg,#5c2a30,#2a1418);display:grid;place-items:center;font:400 18px 'Caprasimo',cursive;color:var(--t3,rgba(247,245,242,.76))">K</div>
+      <div style="flex:1;min-width:0"><div style="font:700 14px/1.2 'Figtree',sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Kannukkul Kannai</div><div style="font:400 10px/1.4;color:var(--t3,rgba(247,245,242,.76));margin-top:2px">a. r. rahman · naresh iyer</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="font:700 8.5px/1 'Figtree',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--t3,rgba(247,245,242,.76));white-space:nowrap">தமிழ் → en</div><div style="width:36px;height:20px;border-radius:999px;background:#aebf92;position:relative"><div style="position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--bg,#0b0b0c)"></div></div></div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:18px;overflow:hidden;padding:2px 2px 0">
+      <div style="opacity:.3"><div style="font:400 17px/1.35 'Lora',serif">கண்ணுக்குள் கண்ணை</div><div style="font:italic 400 11.5px/1.4 'Lora',serif;color:var(--t2,rgba(247,245,242,.88));margin-top:4px">the eye inside the eye</div></div>
+      <div><div style="font:400 25px/1.28 'Lora',serif;color:var(--t1,#f7f5f2)">நெஞ்சுக்குள் நெஞ்சை</div><div style="font:italic 400 13px/1.45 'Lora',serif;color:var(--a,#ff375f);margin-top:6px">the heart inside the heart</div></div>
+      <div style="opacity:.4"><div style="font:400 17px/1.35 'Lora',serif">உள்ளத்தில் உள்ளம்</div><div style="font:italic 400 11.5px/1.4 'Lora',serif;color:var(--t2,rgba(247,245,242,.88));margin-top:4px">the soul within the soul</div></div>
+      <div style="opacity:.2"><div style="font:400 17px/1.35 'Lora',serif">என்னைக் கேட்காமல்</div></div>
+    </div>
+    <div style="border-radius:24px;background:var(--p2,rgba(255,255,255,.09));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));backdrop-filter:blur(24px);padding:14px 16px 16px;margin-bottom:16px">
+      <div style="height:4px;border-radius:999px;background:var(--line,rgba(247,245,242,.3));position:relative;margin-bottom:8px"><div style="position:absolute;left:0;top:0;height:4px;border-radius:999px;width:42%;background:var(--a,#ff375f)"></div><div style="position:absolute;left:42%;top:-4px;width:12px;height:12px;border-radius:50%;background:var(--a,#ff375f);margin-left:-6px"></div></div>
+      <div style="display:flex;justify-content:space-between;font:600 10px/1 'Figtree',sans-serif;font-feature-settings:'tnum';color:var(--t3,rgba(247,245,242,.76));margin-bottom:14px"><span>2:23</span><span>5:42</span></div>
+      <div style="display:flex;justify-content:center;align-items:center;gap:24px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));display:grid;place-items:center;font-size:14px">◀◀</div>
+        <div style="width:62px;height:62px;border-radius:50%;background:var(--a,#ff375f);color:#0b0b0c;display:grid;place-items:center;font-size:18px">▮▮</div>
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--p2,rgba(255,255,255,.09));display:grid;place-items:center;font-size:14px">▶▶</div>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:14px">
+        <div style="flex:1;border-radius:999px;background:var(--p2,rgba(255,255,255,.09));padding:10px 0;text-align:center;font:700 10px/1 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88))">⇗ links</div>
+        <div style="flex:1;border-radius:999px;background:var(--sage-t,rgba(174,191,146,.18));padding:10px 0;text-align:center;font:700 10px/1 'Figtree',sans-serif;color:var(--sage,#aebf92)">↗ to the aux</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div>
+<p class="cap"><b>what changed from <a class="dv-oid" href="#1c">1c</a></b></p>
+<div style="width:360px;padding:20px;border-radius:24px;background:var(--p1,rgba(255,255,255,.07));border:1px solid var(--bd,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 var(--hi,rgba(255,255,255,.14));font-family:'Figtree',sans-serif;color:var(--t1,#f7f5f2)">
+<div style="font:700 9.5px/1 'Figtree',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:{{ accent }};margin-bottom:15px">the merge</div>
+<div style="padding-bottom:13px;border-bottom:1px solid var(--bd,rgba(255,255,255,.14))"><div style="font:400 16px/1.15 'Caprasimo',cursive;margin-bottom:5px">less material</div><div style="font:400 11px/1.6 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88))">solid sand panels became blurred glass at 6% white with a 1px top highlight. no shadows, no filled blocks. radii 28 → 20/22, padding down about a third — 1a's compactness.</div></div>
+<div style="padding:13px 0;border-bottom:1px solid var(--bd,rgba(255,255,255,.14))"><div style="font:400 16px/1.15 'Caprasimo',cursive;margin-bottom:5px">colour = the route</div><div style="font:400 11px/1.6 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88))">the accent is inherited from whichever service you're routed through, so the app is honest about where the music is. sage stays fixed for other people, so it never loses its meaning.</div></div>
+<div style="padding:13px 0;border-bottom:1px solid var(--bd,rgba(255,255,255,.14))"><div style="font:400 16px/1.15 'Caprasimo',cursive;margin-bottom:5px">figures, poster-set</div><div style="font:400 11px/1.6 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88))">the ring is gone. <a href="#1b">1b</a>'s flush-left figure block moves inside one glass card — hero number, week bars, and plays/tracks/artists on hairline columns.</div></div>
+<div style="padding-top:13px"><div style="font:400 16px/1.15 'Caprasimo',cursive;margin-bottom:5px">sing along, set as a book</div><div style="font:400 11px/1.6 'Figtree',sans-serif;color:var(--t2,rgba(247,245,242,.88))"><a href="#1a">1a</a>'s treatment: Lora, dimmed past and future lines, the translation in the accent italic. it's a tab in the sheet and a lyric strip on listening — never a stray pill.</div></div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</div>

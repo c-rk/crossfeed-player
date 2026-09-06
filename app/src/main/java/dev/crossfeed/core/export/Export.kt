@@ -31,8 +31,24 @@ object Workbook {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
         val name = "crossfeed-listening-$stamp.xlsx"
         val sheets = sheets(context)
-        val (uri, stream, folder) = target(context, name)
+        val (uri, stream, folder) = target(context, name, MIME)
         stream.use { Xlsx.write(it, sheets) }
+        Export(uri, name, size(context, uri), folder)
+    }
+
+    /**
+     * The same sheets, plus the sleeves they name, in one zip.
+     *
+     * A spreadsheet alone leaves every square blank on any phone but the one that wrote it, since
+     * its artwork column points at that phone's own folders. This puts the pictures in beside the
+     * sheet and rewrites the column to point at them, so the diary travels whole.
+     */
+    suspend fun bundle(context: Context): Export = withContext(Dispatchers.IO) {
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+        val name = "crossfeed-listening-$stamp.zip"
+        val sheets = sheets(context)
+        val (uri, stream, folder) = target(context, name, Bundle.MIME)
+        stream.use { Bundle.write(context, it, sheets) }
         Export(uri, name, size(context, uri), folder)
     }
 
@@ -116,11 +132,11 @@ object Workbook {
         db.top(kind, "0", limit = 5000).map { listOf(it.label, it.plays, it.listenedMs / 60000.0) },
     )
 
-    private fun target(context: Context, name: String): Triple<Uri, OutputStream, String> {
+    private fun target(context: Context, name: String, mime: String): Triple<Uri, OutputStream, String> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
-                put(MediaStore.Downloads.MIME_TYPE, MIME)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
                 put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
             }
             val resolver = context.contentResolver

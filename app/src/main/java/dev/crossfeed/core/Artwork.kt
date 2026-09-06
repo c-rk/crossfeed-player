@@ -32,7 +32,65 @@ object Artwork {
     }
 
     suspend fun loadUrl(context: Context, url: String): Bitmap? = withContext(Dispatchers.IO) {
-        cache.get(url) ?: load(context, url)?.also { cache.put(url, it) }
+        cache.get(url)?.let { return@withContext it }
+        // three places to look, cheapest first: memory, then this phone's disk, then the network
+        if (url.startsWith("https://")) {
+            kept(context, url)?.let { held ->
+                cache.put(url, held)
+                return@withContext held
+            }
+        }
+        val loaded = load(context, url) ?: return@withContext null
+        cache.put(url, loaded)
+        if (url.startsWith("https://")) keep(context, url, loaded)
+        loaded
+    }
+
+    /**
+     * Sleeves fetched from the net, kept on the phone.
+     *
+     * A feed of forty records is forty fetches every time the app is opened, for pictures that
+     * never change. They are small once they are webp, they belong to rows that will be scrolled
+     * past again tomorrow, and the alternative is a screen of letters while the network catches
+     * up. The folder is swept when it gets big rather than never.
+     */
+    private fun shelf(context: Context) = java.io.File(context.cacheDir, "sleeves").apply { mkdirs() }
+
+    private fun nameOf(url: String) = url.hashCode().toUInt().toString() + ".webp"
+
+    private fun kept(context: Context, url: String): Bitmap? = runCatching {
+        val file = java.io.File(shelf(context), nameOf(url))
+        if (!file.exists()) return null
+        file.setLastModified(System.currentTimeMillis())
+        BitmapFactory.decodeFile(file.absolutePath)
+    }.getOrNull()
+
+    private fun keep(context: Context, url: String, bitmap: Bitmap) {
+        runCatching {
+            val folder = shelf(context)
+            val file = java.io.File(folder, nameOf(url))
+            if (file.exists()) return
+            val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+            file.outputStream().use { bitmap.compress(format, 80, it) }
+            sweep(folder)
+        }
+    }
+
+    /** Keeps the shelf under a sensible size, oldest touched first out. */
+    private fun sweep(folder: java.io.File) {
+        val files = folder.listFiles() ?: return
+        var total = files.sumOf { it.length() }
+        if (total <= SHELF_BYTES) return
+        for (file in files.sortedBy { it.lastModified() }) {
+            if (total <= SHELF_BYTES) break
+            total -= file.length()
+            file.delete()
+        }
     }
 
     suspend fun loadRemote(url: String): Bitmap? = withContext(Dispatchers.IO) {
@@ -66,23 +124,70 @@ object Artwork {
         }.getOrNull()
     }
 
-    private fun fromNetwork(url: String): Bitmap? {
+    /**
+     * Fetches a sleeve, and tries again before giving up.
+     *
+     * A feed asks for a dozen of these at once over whatever signal is going, and a single timeout
+     * used to mean a letter where a record should be, for as long as that row stayed on screen.
+     * The timeouts are longer than they were and one stumble is forgiven, because the cost of
+     * asking twice is a second and the cost of not asking is a blank square.
+     */
+    private fun fromNetwork(url: String, tries: Int = 2): Bitmap? {
+        for (attempt in 1..tries) {
+            fetch(url)?.let { return it }
+            if (attempt < tries) Thread.sleep(400)
+        }
+        return null
+    }
+
+    private fun fetch(url: String): Bitmap? {
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 4000
-                readTimeout = 5000
+                connectTimeout = 8000
+                readTimeout = 12000
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "crossfeed")
             }
             if (conn.responseCode !in 200..299) return null
             if (conn.contentLength > MAX_ART_BYTES) return null
             conn.inputStream.use { stream ->
                 val bytes = stream.readBytes(MAX_ART_BYTES) ?: return null
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                decode(bytes)
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             null
         } finally {
             conn?.disconnect()
+        }
+    }
+
+    /**
+     * Reads the size before reading the pixels.
+     *
+     * Three megabytes of file can be an enormous number of pixels, and the decoder asks for all of
+     * them at once. Running out of memory that way throws an Error rather than an Exception, which
+     * walks straight past an ordinary catch and takes the app with it, so the size is checked
+     * first and anything absurd is refused rather than attempted.
+     */
+    private fun decode(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val width = bounds.outWidth
+        val height = bounds.outHeight
+        if (width <= 0 || height <= 0) return null
+        if (width.toLong() * height.toLong() > MAX_ART_PIXELS) return null
+
+        // a sleeve is never shown larger than a phone screen, so anything much bigger is read at a
+        // fraction of its size. the common case is a 600 or 1200 pixel cover, which lands on 1 and
+        // is read exactly as it was before
+        var sample = 1
+        while (width / sample > ART_EDGE * 2 || height / sample > ART_EDGE * 2) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        return try {
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        } catch (_: Throwable) {
+            null
         }
     }
 
@@ -99,4 +204,7 @@ object Artwork {
     }
 
     private const val MAX_ART_BYTES = 3 * 1024 * 1024
+    private const val MAX_ART_PIXELS = 40_000_000L
+    private const val ART_EDGE = 1024
+    private const val SHELF_BYTES = 24L * 1024 * 1024
 }

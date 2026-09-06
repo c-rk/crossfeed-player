@@ -54,6 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.crossfeed.core.player.PlayerEngine
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import dev.crossfeed.ui.theme.Shapes
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
@@ -72,13 +75,14 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
     val deck = rememberDeck()
 
     var expanded by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
+    var pane by remember { mutableStateOf(Pane.NOW) }
+    val showQueue = pane == Pane.QUEUE
     var hidden by remember { mutableStateOf(false) }
 
     LaunchedEffect(deck?.id) { hidden = false }
 
     BackHandler(enabled = expanded) {
-        if (showQueue) showQueue = false else expanded = false
+        if (pane != Pane.NOW) pane = Pane.NOW else expanded = false
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -90,7 +94,7 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                 if (expanded) 0f else fullPx,
                 spring(dampingRatio = 0.9f, stiffness = 340f),
             )
-            if (!expanded) showQueue = false
+            if (!expanded) pane = Pane.NOW
         }
 
         Column(
@@ -150,13 +154,22 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                                 }
                             },
                             onDragEnd = {
+                                // the sheet is one column read downwards: the player, then the
+                                // words, then the queue. scrolling on moves through them
+                                val order = if (deck.local) {
+                                    listOf(Pane.NOW, Pane.LYRICS, Pane.QUEUE)
+                                } else {
+                                    listOf(Pane.NOW, Pane.LYRICS)
+                                }
+                                val at = order.indexOf(pane).coerceAtLeast(0)
                                 when {
-                                    showQueue && travel > 60f -> showQueue = false
-                                    !showQueue && travel < -60f && deck.local -> showQueue = true
-                                    !showQueue && travel > 110f -> expanded = false
-                                    else -> scope.launch {
-                                        offset.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 340f))
-                                    }
+                                    travel < -60f && at < order.lastIndex -> pane = order[at + 1]
+                                    travel > 60f && at > 0 -> pane = order[at - 1]
+                                    travel > 110f && at == 0 -> expanded = false
+                                    else -> Unit
+                                }
+                                scope.launch {
+                                    offset.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 340f))
                                 }
                             },
                         )
@@ -169,21 +182,26 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
                 ) {
                     Handle(onTap = { expanded = false })
                     Crossfade(
-                        targetState = showQueue,
+                        targetState = pane,
                         animationSpec = tween(180),
                         label = "pane",
                         modifier = Modifier.weight(1f),
-                    ) { queue ->
-                        if (queue) QueuePane() else NowPlayingPane(deck)
+                    ) { shown ->
+                        when (shown) {
+                            Pane.QUEUE -> QueuePane()
+                            Pane.LYRICS -> LyricsScreen(onClose = { pane = Pane.NOW })
+                            else -> NowPlayingPane(deck)
+                        }
                     }
                     Text(
                         when {
-                            showQueue -> "swipe down for the player"
-                            deck.local -> "swipe up for the queue"
-                            else -> "its queue stays in that app"
+                            pane == Pane.QUEUE -> "swipe down for the words"
+                            pane == Pane.LYRICS && deck.local -> "swipe up for the queue"
+                            pane == Pane.LYRICS -> "swipe down for the player"
+                            else -> "swipe up for the words"
                         },
-                        style = Type.caps,
-                        color = glass.inkFaint,
+                        style = Type.tag,
+                        color = glass.t3,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = Space.medium),
@@ -194,6 +212,12 @@ fun PlayerSheet(navBar: @Composable () -> Unit) {
         }
     }
 }
+
+/**
+ * The sheet is one column read downwards: what is playing, then the words to it, then what comes
+ * next. Sing along is not a tab and not a button on a card; it is simply the next thing down.
+ */
+enum class Pane { NOW, LYRICS, QUEUE }
 
 @Composable
 private fun Handle(onTap: () -> Unit) {

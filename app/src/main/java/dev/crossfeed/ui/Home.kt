@@ -11,7 +11,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -49,7 +51,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun RouteScreen() {
+fun RouteScreen(embedded: Boolean = false) {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val prefs = remember { Prefs(context) }
@@ -78,36 +80,71 @@ fun RouteScreen() {
     }
 
     Column(
-        Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = Space.large),
+        if (embedded) {
+            Modifier
+        } else {
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Space.large)
+        },
     ) {
-        Spacer(Modifier.height(Space.medium))
-        Text("crossfeed", style = Type.wordmark, color = glass.ink)
-        Text("music anywhere", style = Type.body, color = glass.inkMuted)
+        if (!embedded) {
+            Spacer(Modifier.height(Space.medium))
+            Text("crossfeed", style = Type.wordmark, color = glass.ink)
+            Text("music anywhere", style = Type.body, color = glass.inkMuted)
+            Spacer(Modifier.height(Space.medium))
+        }
 
-        Spacer(Modifier.height(Space.medium))
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        // the wheel and the two switches it governs, side by side. stacked, the switches were a
+        // scroll away from the thing they qualify
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconWheel(
                 platforms = Platform.entries,
                 selected = targets,
                 installed = { Opener.installed(context, it.pkg) },
+                diameter = 212.dp,
                 onToggle = { platform ->
                     targets = if (platform in targets) targets - platform else targets + platform
                     if (targets.isEmpty()) targets = listOf(platform)
                     prefs.targets = targets
                     ThemeSeed.pkg = targets.first().pkg
+                    // the first route is the colour of the whole app, so changing it here
+                    // retints everything rather than waiting for a restart
+                    dev.crossfeed.ui.theme.Look.routed(context)
                     result = null
                 },
             )
+            Spacer(Modifier.width(Space.small))
+            Column(Modifier.weight(1f)) {
+                WordToggle(
+                    title = "my own files first",
+                    subtitle = if (granted) "$localCount tracks" else "needs audio access",
+                    on = preferLocal && granted,
+                    onChange = { value ->
+                        if (value && !granted) ask.launch(LocalLibrary.permission())
+                        preferLocal = value
+                        prefs.preferLocal = value
+                    },
+                )
+                Spacer(Modifier.height(Space.medium))
+                WordToggle(
+                    title = "open straight away",
+                    subtitle = "skip the sheet on an exact match",
+                    on = autoOpen,
+                    onChange = {
+                        autoOpen = it
+                        prefs.autoOpen = it
+                    },
+                )
+            }
         }
 
         Text(
+            // the wheel has no middle now, so the name it would have held goes here
             text = if (targets.size <= 1) {
-                "one app selected, links route straight through"
+                targets.firstOrNull()?.label.orEmpty() + " · links route straight through"
             } else {
-                "${targets.size} apps selected, crossfeed will ask which one"
+                targets.joinToString(", ") { it.label } + " · crossfeed will ask which"
             },
             style = Type.footnote,
             color = glass.inkMuted,
@@ -116,7 +153,7 @@ fun RouteScreen() {
                 .padding(top = Space.small),
         )
 
-        Spacer(Modifier.height(Space.large))
+        Spacer(Modifier.height(Space.medium))
 
         GlassCard {
             SectionHeader("try a link")
@@ -153,35 +190,6 @@ fun RouteScreen() {
             }
         }
 
-        Spacer(Modifier.height(Space.medium))
-
-        GlassCard {
-            SectionHeader("behaviour")
-            ToggleRow(
-                title = "prefer my own files",
-                subtitle = if (granted) {
-                    "$localCount tracks indexed" +
-                        if (Opener.installed(context, Opener.POWERAMP)) " · poweramp" else ""
-                } else {
-                    "needs audio access"
-                },
-                checked = preferLocal && granted,
-                onChange = { value ->
-                    if (value && !granted) ask.launch(LocalLibrary.permission())
-                    preferLocal = value
-                    prefs.preferLocal = value
-                },
-            )
-            ToggleRow(
-                title = "open straight away",
-                subtitle = "skip the sheet when there is one exact match",
-                checked = autoOpen,
-                onChange = {
-                    autoOpen = it
-                    prefs.autoOpen = it
-                },
-            )
-        }
 
         if (recents.isNotEmpty()) {
             Spacer(Modifier.height(Space.medium))
@@ -258,7 +266,7 @@ fun RouteScreen() {
             )
         }
 
-        Spacer(Modifier.height(110.dp))
+        if (!embedded) Spacer(Modifier.height(110.dp))
     }
 }
 
@@ -322,4 +330,40 @@ private fun openLinkSettings(context: Context) {
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
     }
     runCatching { context.startActivity(intent) }
+}
+
+
+/**
+ * A setting with no switch beside it.
+ *
+ * A switch is a second thing to look at saying what the words already could, and it costs the
+ * width the words needed. On, the line is in the accent; off, it is the quiet ink. The whole
+ * thing is the target.
+ */
+@Composable
+private fun WordToggle(
+    title: String,
+    subtitle: String,
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    val glass = LocalGlass.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable { onChange(!on) }
+            .padding(vertical = 2.dp),
+    ) {
+        Text(
+            title,
+            style = Type.headline,
+            color = if (on) glass.accent else glass.t3,
+        )
+        Text(
+            subtitle,
+            style = Type.meta,
+            color = glass.t3,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
 }

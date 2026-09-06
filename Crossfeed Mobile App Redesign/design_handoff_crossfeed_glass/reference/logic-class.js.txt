@@ -1,0 +1,222 @@
+const SERVICES = {
+  apple:   { name: 'apple music', short: 'apple',   accent: '#ff375f', rgb: '255,55,95' },
+  spotify: { name: 'spotify',     short: 'spotify', accent: '#1ed760', rgb: '30,215,96' },
+  yt:      { name: 'yt music',    short: 'yt',      accent: '#ff5a3c', rgb: '255,90,60' },
+  deezer:  { name: 'deezer',      short: 'deezer',  accent: '#a45cff', rgb: '164,92,255' },
+  tidal:   { name: 'tidal',       short: 'tidal',   accent: '#3ad0ff', rgb: '58,208,255' },
+  local:   { name: 'on device',   short: 'device',  accent: '#f6a06b', rgb: '246,160,107' }
+};
+const ORDER = ['apple', 'spotify', 'yt', 'deezer', 'tidal', 'local'];
+const GLYPH = { apple: '♫', spotify: '◍', yt: '▶', deezer: '▮▮▮', tidal: '◆', local: '⌂' };
+
+const MODES = {
+  dark: {
+    vars: '--bg:#0b0b0c;--board:#0a0a0b;--t1:#f7f5f2;--t2:rgba(247,245,242,.88);--t3:rgba(247,245,242,.76);--line:rgba(247,245,242,.3);--dot:rgba(247,245,242,.5);--p0:rgba(255,255,255,.05);--p1:rgba(255,255,255,.07);--p2:rgba(255,255,255,.09);--p3:#1c1c1f;--bd:rgba(255,255,255,.14);--hi:rgba(255,255,255,.14);--off:rgba(255,255,255,.22);--scrim:rgba(11,11,12,.6);--sage:#aebf92;--sage-t:rgba(174,191,146,.18);--sage-b:rgba(174,191,146,.28)',
+    softA: '.34'
+  },
+  light: {
+    vars: '--bg:#f4f2ee;--board:#e8e5e0;--t1:#141416;--t2:rgba(20,20,22,.82);--t3:rgba(20,20,22,.66);--line:rgba(20,20,22,.2);--dot:rgba(20,20,22,.34);--p0:rgba(255,255,255,.5);--p1:rgba(255,255,255,.66);--p2:rgba(255,255,255,.8);--p3:#e2ddd5;--bd:rgba(20,20,22,.14);--hi:rgba(255,255,255,.9);--off:rgba(20,20,22,.2);--scrim:rgba(244,242,238,.78);--sage:#59703c;--sage-t:rgba(122,138,94,.2);--sage-b:rgba(122,138,94,.34)',
+    softA: '.2'
+  }
+};
+
+class Component extends DCLogic {
+  state = { period: 'week', routes: null, mode: 'dark', listView: 'list', auxView: 'list', notifA: false, notifB: false, notifC: false, reactA: false, reactB: false, reactC: false, notifD: false, reactD: false };
+
+  setService = (e) => {
+    const s = e.currentTarget.getAttribute('data-s');
+    if (s) this.setState(st => ({ routes: [s].concat((st.routes || ['apple']).filter(r => r !== s)) }));
+  };
+  toggleRoute = (e) => {
+    const s = e.currentTarget.getAttribute('data-s');
+    if (!s) return;
+    this.setState(st => {
+      const cur = st.routes || ['apple'];
+      if (cur.indexOf(s) < 0) return { routes: cur.concat([s]) };
+      if (cur.length === 1) return null;
+      return { routes: cur.filter(r => r !== s) };
+    });
+  };
+  promoteRoute = (e) => {
+    const s = e.currentTarget.getAttribute('data-s');
+    if (!s) return;
+    this.setState(st => {
+      const cur = st.routes || ['apple'];
+      if (cur.indexOf(s) < 0) return null;
+      return { routes: [s].concat(cur.filter(r => r !== s)) };
+    });
+  };
+  setMode = (e) => {
+    const m = e.currentTarget.getAttribute('data-m');
+    if (m) this.setState({ mode: m });
+  };
+  setListView = (e) => {
+    const v = e.currentTarget.getAttribute('data-v');
+    if (v) this.setState({ listView: v });
+  };
+  setAuxView = (e) => {
+    const v = e.currentTarget.getAttribute('data-v');
+    if (v) this.setState({ auxView: v });
+  };
+
+  pick = (e) => {
+    const p = e.currentTarget.getAttribute('data-p');
+    if (p) this.setState({ period: p });
+  };
+  flip = (k) => () => this.setState(s => ({ [k]: !s[k] }));
+
+  renderVals() {
+    const p = this.state.period;
+    const d = DATA[p] || DATA.week;
+    const on = (k) => p === k;
+    const routes = (this.state.routes && this.state.routes.length)
+      ? this.state.routes
+      : [SERVICES[this.props.service] ? this.props.service : 'apple'];
+    const svcKey = routes[0];
+    const svc = SERVICES[svcKey];
+    const a = svc.accent;
+    const mode = MODES[this.state.mode] ? this.state.mode : 'dark';
+    const T3 = 'var(--t3,rgba(247,245,242,.76))';
+    const P1 = 'var(--p1,rgba(255,255,255,.07))';
+    const BD = 'var(--bd,rgba(255,255,255,.14))';
+
+    const chips = ORDER.map(k => ({
+      key: k, label: SERVICES[k].name,
+      style: k === svcKey
+        ? `cursor:pointer;border-radius:999px;padding:8px 12px;font:700 10.5px/1 'Figtree',sans-serif;white-space:nowrap;background:${a};color:#0b0b0c;border:1px solid ${a}`
+        : `cursor:pointer;border-radius:999px;padding:8px 12px;font:700 10.5px/1 'Figtree',sans-serif;white-space:nowrap;background:${P1};color:${T3};border:1px solid ${BD}`
+    }));
+
+    const R = 88, NODE = 52;
+    const dial = ORDER.map((k, idx) => {
+      const ang = (idx / ORDER.length) * Math.PI * 2 - Math.PI / 2;
+      const x = 125 + Math.cos(ang) * R - NODE / 2;
+      const y = 125 + Math.sin(ang) * R - NODE / 2;
+      const rank = routes.indexOf(k);
+      const sel = rank >= 0;
+      const sa = SERVICES[k].accent;
+      const base = `position:absolute;left:${Math.round(x)}px;top:${Math.round(y)}px;width:${NODE}px;height:${NODE}px;border-radius:50%;cursor:pointer;display:grid;place-items:center;`;
+      return {
+        key: k,
+        glyph: GLYPH[k],
+        rank: sel ? String(rank + 1) : '',
+        style: base + (sel
+          ? `background:${sa};box-shadow:0 0 0 3px rgba(${SERVICES[k].rgb},.28), 0 4px 14px rgba(0,0,0,.35)`
+          : `background:${P1};border:1px solid ${BD}`),
+        glyphStyle: sel
+          ? `font-size:19px;line-height:1;color:#0b0b0c`
+          : `font-size:18px;line-height:1;color:${T3}`,
+        rankStyle: sel
+          ? `position:absolute;right:-2px;top:-2px;width:17px;height:17px;border-radius:50%;background:var(--bg,#0b0b0c);color:${sa};font:700 9px/17px 'Figtree',sans-serif;text-align:center`
+          : 'display:none'
+      };
+    });
+    const dialTicks = Array.from({ length: 12 }, (_, t) => ({
+      style: `position:absolute;left:50%;top:6px;width:1px;height:${t % 3 === 0 ? 9 : 5}px;background:var(--line,rgba(247,245,242,.3));transform-origin:50% 119px;transform:rotate(${t * 30}deg);opacity:.55`
+    }));
+    const routeChips = routes.map((k, idx) => ({
+      key: k,
+      label: (idx === 0 ? '1 · ' : (idx + 1) + ' · ') + SERVICES[k].name,
+      style: idx === 0
+        ? `cursor:pointer;border-radius:999px;padding:6px 11px;font:700 9.5px/1 'Figtree',sans-serif;white-space:nowrap;background:${a};color:#0b0b0c`
+        : `cursor:pointer;border-radius:999px;padding:6px 11px;font:700 9.5px/1 'Figtree',sans-serif;white-space:nowrap;background:${P1};color:${T3};border:1px solid ${BD}`
+    }));
+    const extra = routes.length - 1;
+    const routeSummary = extra === 0
+      ? 'the only route'
+      : extra === 1 ? '+ 1 more, in order' : '+ ' + extra + ' more, in order';
+
+    const seg = (isOn, pad, size) => isOn
+      ? `cursor:pointer;border-radius:999px;padding:${pad};font:700 ${size}/1 'Figtree',sans-serif;background:var(--t1,#f7f5f2);color:var(--bg,#0b0b0c)`
+      : `cursor:pointer;border-radius:999px;padding:${pad};font:700 ${size}/1 'Figtree',sans-serif;background:transparent;color:${T3}`;
+    const vseg = (isOn) => isOn
+      ? `cursor:pointer;border-radius:999px;width:26px;height:21px;display:grid;place-items:center;font-size:10.5px;background:${a};color:#0b0b0c`
+      : `cursor:pointer;border-radius:999px;width:26px;height:21px;display:grid;place-items:center;font-size:10.5px;background:transparent;color:${T3}`;
+    const lv = this.state.listView, av = this.state.auxView;
+    const chip = (k) => ({
+      bg: svcKey === k ? a : 'rgba(255,255,255,.05)',
+      c:  svcKey === k ? '#0b0b0c' : 'rgba(247,245,242,.6)',
+      bd: svcKey === k ? a : 'rgba(255,255,255,.12)'
+    });
+    const tile = (k) => ({
+      bg: svcKey === k ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.035)',
+      c:  svcKey === k ? a : 'rgba(247,245,242,.7)',
+      bd: svcKey === k ? a : 'rgba(255,255,255,.09)',
+      st: svcKey === k ? 'routing here' : 'tap to route'
+    });
+    const ap = chip('apple'), sp = chip('spotify'), yt = chip('yt'), lo = chip('local');
+    const apT = tile('apple'), spT = tile('spotify'), ytT = tile('yt'), loT = tile('local');
+    const pillD = (k) => ({
+      bg: on(k) ? a : 'rgba(255,255,255,.05)',
+      c:  on(k) ? '#0b0b0c' : 'rgba(247,245,242,.6)',
+      bd: on(k) ? a : 'rgba(255,255,255,.12)'
+    });
+    const dT = pillD('today'), dW = pillD('week'), dM = pillD('month'), dA = pillD('all');
+    return {
+      accent: a, accentSoft: `rgba(${svc.rgb},${MODES[mode].softA})`, serviceName: svc.name,
+      setService: this.setService, themeVars: MODES[mode].vars, chips: chips,
+      dial: dial, dialTicks: dialTicks, routeChips: routeChips, routeSummary: routeSummary,
+      primaryName: svc.name, toggleRoute: this.toggleRoute, promoteRoute: this.promoteRoute,
+      setMode: this.setMode,
+      darkStyle: seg(mode === 'dark', '6px 12px', '9.5px'),
+      lightStyle: seg(mode === 'light', '6px 12px', '9.5px'),
+      darkMiniStyle: seg(mode === 'dark', '5px 9px', '9px'),
+      lightMiniStyle: seg(mode === 'light', '5px 9px', '9px'),
+      setListView: this.setListView, setAuxView: this.setAuxView,
+      listIsRows: lv !== 'grid', listIsGrid: lv === 'grid',
+      auxIsRows: av !== 'grid', auxIsGrid: av === 'grid',
+      listListStyle: vseg(lv !== 'grid'), listGridStyle: vseg(lv === 'grid'),
+      auxListStyle: vseg(av !== 'grid'), auxGridStyle: vseg(av === 'grid'),
+      appleBg: ap.bg, appleC: ap.c, appleBd: ap.bd,
+      spotBg: sp.bg, spotC: sp.c, spotBd: sp.bd,
+      ytBg: yt.bg, ytC: yt.c, ytBd: yt.bd,
+      locBg: lo.bg, locC: lo.c, locBd: lo.bd,
+      appleTileBg: apT.bg, appleTileC: apT.c, appleTileBd: apT.bd, appleState: apT.st,
+      spotTileBg: spT.bg, spotTileC: spT.c, spotTileBd: spT.bd, spotState: spT.st,
+      ytTileBg: ytT.bg, ytTileC: ytT.c, ytTileBd: ytT.bd, ytState: ytT.st,
+      locTileBg: loT.bg, locTileC: loT.c, locTileBd: loT.bd, locState: loT.st,
+      setPeriodD: this.pick,
+      dTodayBg: dT.bg, dTodayC: dT.c, dTodayBd: dT.bd,
+      dWeekBg: dW.bg, dWeekC: dW.c, dWeekBd: dW.bd,
+      dMonthBg: dM.bg, dMonthC: dM.c, dMonthBd: dM.bd,
+      dAllBg: dA.bg, dAllC: dA.c, dAllBd: dA.bd,
+      notifD: this.state.notifD, reactD: this.state.reactD,
+      toggleNotifD: this.flip('notifD'), toggleReactD: this.flip('reactD'),
+      aTime: d.time, cTime: d.ring, aPlays: d.plays, aTracks: d.tracks, aArtists: d.artists,
+      aPeriodWord: d.word, bTime: d.time,
+      setPeriodA: this.pick, setPeriodB: this.pick, setPeriodC: this.pick,
+      // 1a — gold underline
+      aTodayC: on('today') ? '#c9a05a' : 'rgba(239,233,220,.42)',
+      aTodayB: on('today') ? '#c9a05a' : 'transparent',
+      aWeekC: on('week') ? '#c9a05a' : 'rgba(239,233,220,.42)',
+      aWeekB: on('week') ? '#c9a05a' : 'transparent',
+      aMonthC: on('month') ? '#c9a05a' : 'rgba(239,233,220,.42)',
+      aMonthB: on('month') ? '#c9a05a' : 'transparent',
+      aAllC: on('all') ? '#c9a05a' : 'rgba(239,233,220,.42)',
+      aAllB: on('all') ? '#c9a05a' : 'transparent',
+      // 1b — red fill cell
+      bTodayBg: on('today') ? '#ff563c' : 'transparent',
+      bTodayC: on('today') ? '#161514' : 'rgba(243,242,242,.55)',
+      bWeekBg: on('week') ? '#ff563c' : 'transparent',
+      bWeekC: on('week') ? '#161514' : 'rgba(243,242,242,.55)',
+      bMonthBg: on('month') ? '#ff563c' : 'transparent',
+      bMonthC: on('month') ? '#161514' : 'rgba(243,242,242,.55)',
+      bAllBg: on('all') ? '#ff563c' : 'transparent',
+      bAllC: on('all') ? '#161514' : 'rgba(243,242,242,.55)',
+      // 1c — terracotta pill
+      cTodayBg: on('today') ? '#f6a06b' : 'rgba(245,234,216,.09)',
+      cTodayC: on('today') ? '#241d16' : 'rgba(245,234,216,.6)',
+      cWeekBg: on('week') ? '#f6a06b' : 'rgba(245,234,216,.09)',
+      cWeekC: on('week') ? '#241d16' : 'rgba(245,234,216,.6)',
+      cMonthBg: on('month') ? '#f6a06b' : 'rgba(245,234,216,.09)',
+      cMonthC: on('month') ? '#241d16' : 'rgba(245,234,216,.6)',
+      cAllBg: on('all') ? '#f6a06b' : 'rgba(245,234,216,.09)',
+      cAllC: on('all') ? '#241d16' : 'rgba(245,234,216,.6)',
+      notifA: this.state.notifA, notifB: this.state.notifB, notifC: this.state.notifC,
+      reactA: this.state.reactA, reactB: this.state.reactB, reactC: this.state.reactC,
+      toggleNotifA: this.flip('notifA'), toggleNotifB: this.flip('notifB'), toggleNotifC: this.flip('notifC'),
+      toggleReactA: this.flip('reactA'), toggleReactB: this.flip('reactB'), toggleReactC: this.flip('reactC')
+    };
+  }
+}
+

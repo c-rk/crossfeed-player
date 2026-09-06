@@ -45,6 +45,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.crossfeed.core.history.Days
+import dev.crossfeed.core.history.HistoryDb
+import dev.crossfeed.core.history.Kind
 import dev.crossfeed.core.Artwork
 import dev.crossfeed.core.LocalLibrary
 import dev.crossfeed.core.Router
@@ -176,9 +179,9 @@ fun PlayerScreen() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    openKey?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "player",
-                    style = Type.wordmark,
-                    color = glass.ink,
+                    openKey?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "your shelf",
+                    style = Type.page,
+                    color = glass.t1,
                     maxLines = 1,
                 )
                 Text(
@@ -191,10 +194,10 @@ fun PlayerScreen() {
                         category == Category.SONGS -> "${tracks.size} tracks"
                         category == Category.FOLDERS ->
                             "${buckets.size} folders · ${tracks.size} tracks"
-                        else -> "${buckets.size} ${category.name.lowercase()}"
+                        else -> "${buckets.size} ${category.name.lowercase()} · offline · yours"
                     },
-                    style = Type.body,
-                    color = glass.inkMuted,
+                    style = Type.note,
+                    color = glass.t3,
                     maxLines = 1,
                 )
             }
@@ -205,7 +208,7 @@ fun PlayerScreen() {
         SearchField(
             value = query,
             onValueChange = { query = it },
-            placeholder = "search everything",
+            placeholder = "search here, or all of music",
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -296,7 +299,7 @@ fun PlayerScreen() {
                     )
                 }
             }
-            item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(150.dp)) }
+            item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(bottomRoom())) }
         }
     }
 
@@ -546,3 +549,5 @@ fun TrackArt(url: String?, title: String, size: Dp?) {
         }
     }
 }
+
+

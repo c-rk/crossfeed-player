@@ -1,10 +1,10 @@
 package dev.crossfeed.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,49 +12,97 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.ui.settings.SettingsScreen
 import dev.crossfeed.ui.theme.LocalGlass
 import dev.crossfeed.ui.theme.Space
 import dev.crossfeed.ui.theme.Type
+import kotlinx.coroutines.launch
 
+/**
+ * Four pages, side by side, swiped between.
+ *
+ * There are no labels under the nav any more. The app is four places and a thumb learns where they
+ * are in a day, so the pill only has to say which one you are on, not what each is called.
+ */
 @Composable
 fun CrossfeedApp() {
     val nav = rememberNav()
+    val scope = rememberCoroutineScope()
+    val pager = rememberPagerState(initialPage = Roots.indexOf(nav.root).coerceAtLeast(0)) { Roots.size }
+    val glass = LocalGlass.current
 
     BackHandler(enabled = nav.canPop) { nav.pop() }
 
-    Backdrop {
+    LaunchedEffect(pager.currentPage) { nav.select(Roots[pager.currentPage]) }
+
+    val page = Roots.getOrElse(pager.currentPage) { Dest.HOME }
+    val friends = page == Dest.AUX
+
+    Bloom(
+        // the aux is the one page about other people, so its light is sage and the accent is the
+        // thing kept low and to the side
+        top = if (friends) glass.sage else glass.accent,
+        topAlpha = if (friends) 0.30f else glass.bloomAlpha,
+        bottom = when (page) {
+            Dest.AUX -> glass.accent
+            Dest.HOME -> glass.sage
+            else -> null
+        },
+        bottomAlpha = if (friends) glass.bloomAlpha else 0.22f,
+        bottomLeft = !friends,
+    ) {
         Box(
             Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars),
+                // only the top is kept clear. the nav pill floats over the page rather than
+                // cutting it off, so a feed carries on underneath it
+                .windowInsetsPadding(WindowInsets.statusBars),
         ) {
-            Crossfade(targetState = nav.current, label = "dest") { dest ->
-                when (dest) {
-                    Dest.HOME -> ListeningScreen()
-                    Dest.AUX -> SocialScreen()
-                    Dest.PLAYER -> PlayerScreen()
-                    Dest.SETTINGS -> SettingsScreen(nav)
+            if (nav.canPop) {
+                when (nav.current) {
                     Dest.ROUTE -> Sub("route", nav::pop) { RouteScreen() }
+                    else -> Unit
+                }
+            } else {
+                HorizontalPager(
+                    state = pager,
+                    // all four stay composed. there are only four, and the alternative is every
+                    // page rebuilding itself from nothing each time you swipe back to it
+                    beyondViewportPageCount = Roots.size,
+                    modifier = Modifier.fillMaxSize(),
+                ) { index ->
+                    when (Roots[index]) {
+                        Dest.AUX -> SocialScreen(visible = page == Dest.AUX)
+                        Dest.PLAYER -> PlayerScreen()
+                        Dest.SETTINGS -> SettingsScreen(nav)
+                        else -> ListeningScreen()
+                    }
                 }
             }
         }
         PlayerSheet {
-            TabBar(
-                selected = nav.root,
-                onSelect = nav::select,
+            NavPill(
+                selected = page,
+                onSelect = { dest -> scope.launch { pager.animateScrollToPage(Roots.indexOf(dest)) } },
                 modifier = Modifier.padding(bottom = Space.small),
             )
         }
@@ -77,60 +125,55 @@ fun Sub(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
                     .clickable(onClick = onBack)
                     .padding(horizontal = Space.small, vertical = 4.dp),
             ) {
-                Text("back", style = Type.caps, color = glass.inkMuted)
+                Text("back", style = Type.tag, color = glass.t3)
             }
             Spacer(Modifier.padding(horizontal = Space.tight))
-            Text(title, style = Type.blockTitle, color = glass.ink)
+            Text(title, style = Type.section, color = glass.t1)
         }
         content()
     }
 }
 
+/**
+ * Four dots, one of them stretched. The stretched one is where you are, and it wears the colour of
+ * whatever service the app is routing through.
+ */
 @Composable
-private fun TabBar(selected: Dest, onSelect: (Dest) -> Unit, modifier: Modifier = Modifier) {
+private fun NavPill(selected: Dest, onSelect: (Dest) -> Unit, modifier: Modifier = Modifier) {
     val glass = LocalGlass.current
     val shape = RoundedCornerShape(50)
     Row(
         modifier
             .clip(shape)
-            .background(glass.chrome)
-            .background(Brush.verticalGradient(listOf(glass.fill, Color.Transparent)))
-            .border(1.dp, glass.stroke, shape)
-            .padding(4.dp),
+            .background(glass.p2)
+            .border(1.dp, glass.bd, shape)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         for (dest in Roots) {
-            Tab(dest, selected == dest) { onSelect(dest) }
+            val on = dest == selected
+            Box(
+                Modifier
+                    .size(width = if (on) 44.dp else 36.dp, height = 32.dp)
+                    .clip(shape)
+                    .background(if (on) glass.accent else Color.Transparent)
+                    .clickable { onSelect(dest) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Mark(
+                    glyphOf(dest),
+                    side = 15.dp,
+                    tint = if (on) glass.onAccent else glass.dot,
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun Tab(dest: Dest, active: Boolean, onClick: () -> Unit) {
-    val glass = LocalGlass.current
-    val shape = RoundedCornerShape(50)
-    Box(
-        Modifier
-            .clip(shape)
-            .then(
-                if (active) {
-                    Modifier.background(Brush.linearGradient(glass.hot))
-                } else {
-                    Modifier.background(Color.Transparent)
-                },
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = if (dest == Dest.SETTINGS) 12.dp else 14.dp, vertical = 11.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (dest == Dest.SETTINGS) {
-            Gear(active = active)
-        } else {
-            Text(
-                dest.label,
-                style = Type.callout,
-                color = if (active) Color.White else glass.ink,
-            )
-        }
-    }
+private fun glyphOf(dest: Dest): Glyph = when (dest) {
+    Dest.AUX -> Glyph.PEOPLE
+    Dest.PLAYER -> Glyph.TURNTABLE
+    Dest.SETTINGS -> Glyph.GEAR
+    else -> Glyph.DIARY
 }

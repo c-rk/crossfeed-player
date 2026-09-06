@@ -83,7 +83,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ListeningScreen() {
+fun ListeningLegacy() {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val scope = rememberCoroutineScope()
@@ -106,7 +106,7 @@ fun ListeningScreen() {
         if (uri != null) {
             importing = true
             scope.launch {
-                runCatching { Restore.fromXlsx(context, uri) }
+                runCatching { Restore.fromFile(context, uri) }
                     .onSuccess {
                         exportNote = Restore.describe(it)
                         reload++

@@ -46,9 +46,12 @@ object Catalog {
     /** Where to send someone for a song, and whether it is the song or only a search for it. */
     data class Address(val url: String, val exact: Boolean)
 
-    private val found = HashMap<String, Record?>()
-    private val artists = HashMap<String, Boolean>()
-    private val links = HashMap<String, String?>()
+    // a resolve asks every service at once, so these are written from several coroutines at the
+    // same time. a plain map can corrupt itself or spin forever when that happens. they stay
+    // nullable because a remembered null is how a miss is remembered
+    private val found = java.util.Collections.synchronizedMap(HashMap<String, Record?>())
+    private val artists = java.util.Collections.synchronizedMap(HashMap<String, Boolean>())
+    private val links = java.util.Collections.synchronizedMap(HashMap<String, String?>())
 
     /** Anything under this is not the song, whoever answered. */
     private const val FLOOR = 0.55

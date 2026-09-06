@@ -6,17 +6,30 @@ import kotlin.math.abs
 object Matching {
 
     private val marks = Regex("""\p{Mn}+""")
-    private val featuring = Regex("""\s*[(\[]?\s*(feat\.?|featuring|ft\.?|with)\s+[^)\]]*[)\]]?""", RegexOption.IGNORE_CASE)
+
+    // the leading run is one character class rather than two quantifiers around an optional
+    // bracket, and the tails are bounded. two quantifiers that can both match a space make the
+    // engine try every way of splitting a run of them, which is cubic on a title that is mostly
+    // whitespace, and a title can be whatever a page says it is
+    private val featuring = Regex(
+        """[\s(\[]{0,64}(feat\.?|featuring|ft\.?|with)\s{1,64}[^)\]]{0,256}[)\]]?""",
+        RegexOption.IGNORE_CASE,
+    )
     private val noise = Regex(
-        """\s*[(\[][^)\]]*\b(remaster(ed)?|deluxe|expanded|bonus track|explicit|clean|single version|album version|radio edit|original mix|official\s+(music\s+)?(video|audio)|lyrics?(\s+video)?|visuali[sz]er|music\s+video|4k|hd)\b[^)\]]*[)\]]""",
+        """\s{0,64}[(\[][^)\]]{0,256}\b(remaster(ed)?|deluxe|expanded|bonus track|explicit|clean|single version|album version|radio edit|original mix|official\s{1,8}(music\s{1,8})?(video|audio)|lyrics?(\s{1,8}video)?|visuali[sz]er|music\s{1,8}video|4k|hd)\b[^)\]]{0,256}[)\]]""",
         RegexOption.IGNORE_CASE,
     )
     private val punctuation = Regex("""[^\p{L}\p{N}\s]""")
     private val spaces = Regex("""\s+""")
 
+    // nothing that is really a title or an artist is longer than this, and the cap keeps a hostile
+    // one from being worth the trouble
+    private const val LONGEST = 512
+
     fun norm(value: String?): String {
         if (value.isNullOrBlank()) return ""
-        var s = Normalizer.normalize(value, Normalizer.Form.NFD)
+        val capped = if (value.length > LONGEST) value.take(LONGEST) else value
+        var s = Normalizer.normalize(capped, Normalizer.Form.NFD)
         s = marks.replace(s, "")
         s = s.lowercase()
         s = noise.replace(s, " ")

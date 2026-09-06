@@ -150,24 +150,6 @@ fun NowCard() {
             }
         }
 
-        if (deck.playing || live) {
-            Spacer(Modifier.height(Space.small))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                GlassButton(
-                    label = "sing along",
-                    filled = true,
-                    compact = true,
-                    onClick = { singing = true },
-                )
-            }
-        } else {
-            Text(
-                where.removePrefix("on ") + " is not answering right now, so this is a reading " +
-                    "only. it usually comes back on its own when the song changes.",
-                style = Type.footnote,
-                color = glass.inkFaint,
-            )
-        }
     }
 
     if (singing) {

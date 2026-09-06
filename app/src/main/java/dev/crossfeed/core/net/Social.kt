@@ -74,7 +74,32 @@ data class Live(
     val source: String?,
     val at: Long,
     val self: Boolean,
-)
+    val listenedMs: Long = 0,
+    val durationMs: Long = 0,
+) {
+    /** How far through the track they were when they last said. */
+    val through: Float
+        get() = if (durationMs > 0) (listenedMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+
+    /**
+     * The same thing, carried forward to now.
+     *
+     * Someone's phone only speaks every half minute, so a ring drawn from the last word alone
+     * sits still and then jumps. Between words it is assumed they kept playing, which is true
+     * almost always and cheap to be wrong about. Almost: it will not run further than a little
+     * past the next expected word, so a paused track drifts a few seconds and then waits rather
+     * than sweeping confidently to the end of a song nobody is hearing.
+     */
+    fun throughAt(nowMs: Long): Float {
+        if (durationMs <= 0) return 0f
+        val since = (nowMs - at).coerceIn(0L, CREEP_MS)
+        return ((listenedMs + since).toFloat() / durationMs).coerceIn(0f, 1f)
+    }
+
+    private companion object {
+        const val CREEP_MS = 35_000L
+    }
+}
 
 object Social {
 
@@ -102,6 +127,8 @@ object Social {
                         source = it.stringOrNull("source"),
                         at = it.optLong("at"),
                         self = it.optBoolean("self"),
+                        listenedMs = it.optLong("listenedMs"),
+                        durationMs = it.optLong("durationMs"),
                     )
                 }
             },
@@ -128,6 +155,8 @@ object Social {
                 source = it.stringOrNull("source"),
                 at = it.optLong("at"),
                 self = it.optBoolean("self"),
+                listenedMs = it.optLong("listenedMs"),
+                durationMs = it.optLong("durationMs"),
             )
         }
     }

@@ -78,6 +78,9 @@ fun SharingCard() {
             subtitle = "posts the track, artist and how long, never your whole history",
             checked = sharePlays && registered,
             onChange = {
+                // the switch already reads as off without a handle, so writing the preference
+                // anyway left it on underneath, quietly arming everything that reads it
+                if (!registered) return@ToggleRow
                 sharePlays = it
                 prefs.sharePlays = it
             },

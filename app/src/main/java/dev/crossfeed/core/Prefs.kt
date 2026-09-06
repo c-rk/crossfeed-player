@@ -7,22 +7,75 @@ class Prefs(context: Context) {
 
     private val store = context.applicationContext.getSharedPreferences("crossfeed", Context.MODE_PRIVATE)
 
-    var targets: List<Platform>
+    /**
+     * Where music comes from, in the order it should be tried. This is one list rather than a
+     * favourite plus a pile of also-rans: the first entry is the shortcut a link takes and the
+     * colour the whole app wears, and the rest are what a chooser offers under it.
+     *
+     * The listener's own files are a route like any other, which is why this holds ids rather
+     * than platforms. It is never empty.
+     */
+    var routes: List<String>
         get() {
-            val raw = store.getString(KEY_TARGETS, null) ?: return listOf(Platform.APPLE_MUSIC)
-            val parsed = raw.split(',').mapNotNull { Platform.byId(it.trim()) }
-            return parsed.ifEmpty { listOf(Platform.APPLE_MUSIC) }
+            val raw = store.getString(KEY_ROUTES, null) ?: return migrated()
+            val parsed = raw.split(',').map { it.trim() }.filter { it in known }
+            return parsed.distinct().ifEmpty { listOf(Platform.APPLE_MUSIC.id) }
         }
         set(value) {
-            val clean = value.distinct().ifEmpty { listOf(Platform.APPLE_MUSIC) }
-            store.edit().putString(KEY_TARGETS, clean.joinToString(",") { it.id }).apply()
+            val clean = value.filter { it in known }.distinct().ifEmpty { listOf(Platform.APPLE_MUSIC.id) }
+            store.edit().putString(KEY_ROUTES, clean.joinToString(",")).apply()
+        }
+
+    /** What the app used to keep, folded into the one list the first time it is asked for. */
+    private fun migrated(): List<String> {
+        val was = store.getString(KEY_TARGETS, null)
+            ?.split(',')?.mapNotNull { Platform.byId(it.trim())?.id }
+            ?: listOf(Platform.APPLE_MUSIC.id)
+        val list = if (store.getBoolean(KEY_PREFER_LOCAL, true)) listOf(ON_DEVICE) + was else was
+        val clean = list.distinct().ifEmpty { listOf(Platform.APPLE_MUSIC.id) }
+        store.edit().putString(KEY_ROUTES, clean.joinToString(",")).apply()
+        return clean
+    }
+
+    /** The route that wins: the shortcut, and the colour of everything. */
+    val leadRoute: String get() = routes.first()
+
+    var targets: List<Platform>
+        get() = routes.mapNotNull { Platform.byId(it) }.ifEmpty { listOf(Platform.APPLE_MUSIC) }
+        set(value) {
+            val ids = value.map { it.id }
+            val keptLocal = routes.filter { it == ON_DEVICE }
+            routes = if (routes.firstOrNull() == ON_DEVICE) keptLocal + ids else ids + keptLocal
         }
 
     val primary: Platform get() = targets.first()
 
+    /** Whether the listener's own files are tried before any shop. */
     var preferLocal: Boolean
-        get() = store.getBoolean(KEY_PREFER_LOCAL, true)
-        set(value) = store.edit().putBoolean(KEY_PREFER_LOCAL, value).apply()
+        get() = routes.firstOrNull() == ON_DEVICE
+        set(value) {
+            val rest = routes.filterNot { it == ON_DEVICE }
+            routes = if (value) listOf(ON_DEVICE) + rest else rest + ON_DEVICE
+        }
+
+    /** When the diary was last folded together, so it happens daily rather than every launch. */
+    var tidiedAt: Long
+        get() = store.getLong(KEY_TIDIED, 0)
+        set(value) = store.edit().putLong(KEY_TIDIED, value).apply()
+
+    /** Which colour mode the app wears. Absent means whatever the phone is set to. */
+    var mode: String?
+        get() = store.getString(KEY_MODE, null)
+        set(value) = store.edit().putString(KEY_MODE, value).apply()
+
+    /** Whether the diary and the feed are read as lists or as grids, remembered apart. */
+    var diaryGrid: Boolean
+        get() = store.getBoolean(KEY_DIARY_GRID, false)
+        set(value) = store.edit().putBoolean(KEY_DIARY_GRID, value).apply()
+
+    var auxGrid: Boolean
+        get() = store.getBoolean(KEY_AUX_GRID, false)
+        set(value) = store.edit().putBoolean(KEY_AUX_GRID, value).apply()
 
     var autoOpen: Boolean
         get() = store.getBoolean(KEY_AUTO_OPEN, true)
@@ -44,6 +97,15 @@ class Prefs(context: Context) {
         set(value) = store.edit().putBoolean(KEY_GENRES, value).apply()
 
     /** When the last notice the user waved away was posted. */
+    /** When the server was last asked whether there is a notice, and what it said. */
+    var bannerAskedAt: Long
+        get() = store.getLong(KEY_BANNER_AT, 0)
+        set(value) = store.edit().putLong(KEY_BANNER_AT, value).apply()
+
+    var bannerHeld: String?
+        get() = store.getString(KEY_BANNER, null)
+        set(value) = store.edit().putString(KEY_BANNER, value).apply()
+
     /** When github was last asked whether there is a newer version. */
     var updateCheckedAt: Long
         get() = store.getLong(KEY_CHECKED, 0)
@@ -97,7 +159,17 @@ class Prefs(context: Context) {
     companion object {
         const val DEFAULT_BASE = "https://crossfeed-api.tiny-violet-c3ae.workers.dev"
 
+        /** The listener's own files, as a route id. */
+        const val ON_DEVICE = "on_device"
+
+        val known: Set<String> = Platform.entries.map { it.id }.toSet() + ON_DEVICE
+
         private const val KEY_TARGETS = "targets"
+        private const val KEY_ROUTES = "routes"
+        private const val KEY_TIDIED = "tidied_at"
+        private const val KEY_MODE = "colour_mode"
+        private const val KEY_DIARY_GRID = "diary_grid"
+        private const val KEY_AUX_GRID = "aux_grid"
         private const val KEY_PREFER_LOCAL = "prefer_local"
         private const val KEY_AUTO_OPEN = "auto_open"
         private const val KEY_BASE_URL = "base_url"
@@ -105,6 +177,8 @@ class Prefs(context: Context) {
         private const val KEY_GENRES = "look_up_genres"
         private const val KEY_NOTICE = "notice_seen"
         private const val KEY_CHECKED = "update_checked_at"
+        private const val KEY_BANNER_AT = "banner_asked_at"
+        private const val KEY_BANNER = "banner_held"
         private const val KEY_VERSION_SEEN = "version_seen"
         private const val KEY_STORE = "store_country"
         private const val KEY_BROWSER_MUSIC = "count_browser_music"
