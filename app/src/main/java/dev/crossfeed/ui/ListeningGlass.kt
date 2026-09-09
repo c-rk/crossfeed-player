@@ -580,7 +580,16 @@ private fun PlayRow(play: Play, onOpen: () -> Unit, onHold: () -> Unit) {
                         )
                     }
                 }
-                Text(clock(play.startedAt), style = Type.stamp, color = glass.t3, maxLines = 1)
+                // when it was played and how long it was actually listened to, on their own line
+                // under the title rather than crowded into it
+                Text(
+                    listOfNotNull(stampOf(play.startedAt), listenedFor(play.listenedMs))
+                        .joinToString(" · "),
+                    style = Type.stamp,
+                    color = glass.t3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Spacer(Modifier.width(10.dp))
             val done = completion(play)
@@ -623,7 +632,18 @@ private fun PlayTile(play: Play, onOpen: () -> Unit, onHold: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(clock(play.startedAt), style = Type.meta, color = glass.t3, maxLines = 1)
+        // a tile is too narrow to carry the date, the time and the length on one line without
+        // cutting one of them off, so the length sits under them
+        Text(
+            stampOf(play.startedAt),
+            style = Type.stamp,
+            color = glass.t3,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        listenedFor(play.listenedMs)?.let {
+            Text(it, style = Type.stamp, color = glass.t3, maxLines = 1)
+        }
     }
 }
 
@@ -718,14 +738,6 @@ private fun finished(play: Play): Boolean =
 
 /** How much of the day stays on screen when the section is folded. */
 private const val FOLDED = 5
-
-private fun clock(millis: Long): String {
-    val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }
-    return "%02d:%02d".format(
-        calendar.get(java.util.Calendar.HOUR_OF_DAY),
-        calendar.get(java.util.Calendar.MINUTE),
-    )
-}
 
 /**
  * The bars under the hero figure, bucketed to match whatever stretch is showing: hours across a
