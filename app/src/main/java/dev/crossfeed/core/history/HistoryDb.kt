@@ -264,6 +264,15 @@ class HistoryDb private constructor(context: Context) :
         return out
     }
 
+    /** Changes whenever the diary does: a play added or grown, or a mood noted. */
+    fun changeMark(): String {
+        val plays = readableDatabase.rawQuery("SELECT COUNT(*), IFNULL(MAX(last_at),0), IFNULL(SUM(listened_ms),0) FROM plays", null)
+            .use { if (it.moveToFirst()) "${it.getLong(0)}|${it.getLong(1)}|${it.getLong(2)}" else "" }
+        val moods = readableDatabase.rawQuery("SELECT COUNT(*), IFNULL(MAX(at),0) FROM moods", null)
+            .use { if (it.moveToFirst()) "${it.getLong(0)}|${it.getLong(1)}" else "" }
+        return "$plays|$moods"
+    }
+
     fun topOfDay(day: String): Tally? =
         readableDatabase.rawQuery(
             "SELECT label, plays, listened_ms FROM agg WHERE kind=? AND day=? ORDER BY listened_ms DESC LIMIT 1",

@@ -89,6 +89,35 @@ object Meaning {
         }
     }
 
+    /**
+     * Whether a song can be translated at all, known before anyone asks. Telling the language
+     * apart runs on the phone and takes a moment, so the switch can say "no translation for
+     * malayalam" up front instead of being tapped to find out.
+     */
+    sealed interface Verdict {
+        data object Possible : Verdict
+        data class Unsupported(val language: String) : Verdict
+        data object Same : Verdict
+    }
+
+    private val verdicts = HashMap<String, Verdict>()
+
+    suspend fun verdict(songKey: String, lines: List<String>, target: String): Verdict {
+        verdicts[songKey]?.let { return it }
+        val sample = lines.filter { it.isNotBlank() }.take(24).joinToString("\n")
+        // when the language cannot be told, the switch stays offered: the attempt can still say why
+        val detected = runCatching { identify(sample) }.getOrNull() ?: return Verdict.Possible
+        val from = TranslateLanguage.fromLanguageTag(detected)
+        val to = TranslateLanguage.fromLanguageTag(target) ?: TranslateLanguage.ENGLISH
+        val answer = when {
+            from == null -> Verdict.Unsupported(nameOf(detected))
+            from == to -> Verdict.Same
+            else -> Verdict.Possible
+        }
+        verdicts[songKey] = answer
+        return answer
+    }
+
     private fun nameOf(tag: String): String =
         Locale(tag).displayLanguage.lowercase().ifBlank { tag }
 

@@ -206,7 +206,7 @@ fun WeatherCard() {
     GlassCard(padding = Space.medium) {
         Text("the weather", style = Type.section, color = glass.t1)
         Text(
-            "every day the diary has. tap into a month, a week, a day; pinch to come back out.",
+            "every day the diary has. tap a square to see it, tap twice to open its month, week or day; pinch to come back out.",
             style = Type.note,
             color = glass.t3,
             modifier = Modifier.padding(top = 2.dp, bottom = Space.small),
@@ -255,10 +255,19 @@ fun WeatherCard() {
                     }
                 }
                 .pointerInput(zoom, boxes) {
-                    detectTapGestures { at ->
-                        val unit = Offset(at.x / size.width, at.y / size.height)
-                        boxes.lastOrNull { it.rect.contains(unit) }?.let { deeper(it) }
+                    // one tap asks what a day was, two go into it
+                    fun under(at: Offset) = boxes.lastOrNull {
+                        it.rect.contains(Offset(at.x / size.width, at.y / size.height))
                     }
+                    detectTapGestures(
+                        onTap = { at ->
+                            under(at)?.let { box ->
+                                box.day?.takeIf { it <= today }?.let { picked = it }
+                                box.hour?.let { hour = it }
+                            }
+                        },
+                        onDoubleTap = { at -> under(at)?.let { deeper(it) } },
+                    )
                 }
                 .pointerInput(zoom, boxes) {
                     // two fingers only, so a one finger drag still scrolls the page

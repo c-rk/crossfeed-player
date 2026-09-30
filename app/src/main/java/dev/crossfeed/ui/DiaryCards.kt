@@ -26,6 +26,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -203,24 +205,28 @@ private fun MoodDot(mood: Moods.Mood, index: Int, chosen: String?, onPick: () ->
 
     Column(
         Modifier
-            .clip(Shapes.chip)
-            .clickable(onClick = onPick)
-            .padding(horizontal = 2.dp, vertical = 4.dp)
+            // no clip here: a clip is what shaved the sides off a dot as it grew. the dot's own
+            // growth is the feedback, so there is no ripple to contain either
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onPick)
+            .padding(vertical = 4.dp)
             .graphicsLayer { alpha = fade },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(
-            Modifier
-                .size(34.dp)
-                .graphicsLayer {
-                    val scale = arrive.value * focus * (if (chosen == null) breath else 1f)
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .clip(CircleShape)
-                .background(Brush.radialGradient(listOf(tint, tint.copy(alpha = 0.55f))))
-                .border(1.dp, tint.copy(alpha = 0.9f), CircleShape),
-        )
+        // room for the dot at its largest, so it grows into space it already has
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Spacer(
+                Modifier
+                    .size(30.dp)
+                    .graphicsLayer {
+                        val scale = arrive.value * focus * (if (chosen == null) breath else 1f)
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(CircleShape)
+                    .background(Brush.radialGradient(listOf(tint, tint.copy(alpha = 0.55f))))
+                    .border(1.dp, tint.copy(alpha = 0.9f), CircleShape),
+            )
+        }
         Spacer(Modifier.height(5.dp))
         Text(
             mood.name,

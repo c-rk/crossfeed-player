@@ -41,6 +41,42 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * The last export of each kind, kept beyond the settings page so leaving and coming back does not
+ * forget it. A repeat is one made within a couple of minutes of the last, or with nothing new in
+ * the diary since, and only while the file it would duplicate still exists.
+ */
+object Exports {
+    data class Last(val file: Export, val at: Long, val mark: String)
+
+    private val last = mutableMapOf<String, Last>()
+    private const val SOON_MS = 2 * 60_000L
+
+    fun remember(kind: String, file: Export, mark: String) {
+        last[kind] = Last(file, System.currentTimeMillis(), mark)
+    }
+
+    fun repeatOf(context: android.content.Context, kind: String, mark: String): Last? {
+        val previous = last[kind] ?: return null
+        val recent = System.currentTimeMillis() - previous.at < SOON_MS
+        if (!recent && previous.mark != mark) return null
+        // deleted from downloads since, so a fresh one is what is wanted
+        val present = runCatching {
+            context.contentResolver.openFileDescriptor(previous.file.uri, "r")?.use { it.statSize > 0 }
+        }.getOrNull() == true
+        return previous.takeIf { present }
+    }
+
+    fun ago(at: Long): String {
+        val gone = System.currentTimeMillis() - at
+        return when {
+            gone < 60_000L -> "just now"
+            gone < 3600_000L -> "${gone / 60_000L}m ago"
+            else -> "${gone / 3600_000L}h ago"
+        }
+    }
+}
+
 @Composable
 fun DataCard() {
     val context = LocalContext.current
@@ -130,40 +166,40 @@ fun DataCard() {
         )
         Spacer(Modifier.height(Space.small))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+            // a second press straight after the first, or with nothing new in the diary since,
+            // points at the file that already exists instead of writing the same one again
+            fun write(kind: String, make: suspend () -> Export) {
+                exporting = true
+                scope.launch {
+                    val mark = withContext(Dispatchers.IO) { db.changeMark() }
+                    val already = Exports.repeatOf(context, kind, mark)
+                    if (already != null) {
+                        exported = already.file
+                        note = "already exported " + Exports.ago(already.at) + ": ${already.file.path}"
+                    } else {
+                        runCatching { make() }
+                            .onSuccess {
+                                exported = it
+                                Exports.remember(kind, it, mark)
+                                note = "exported ${it.path} · ${Stats.bytes(it.bytes)}"
+                            }
+                            .onFailure { note = "could not write the file" }
+                    }
+                    exporting = false
+                }
+            }
             GlassButton(
                 label = if (exporting) "writing…" else "everything",
                 filled = true,
                 enabled = !exporting,
                 modifier = Modifier.weight(1f),
-                onClick = {
-                    exporting = true
-                    scope.launch {
-                        runCatching { Workbook.bundle(context) }
-                            .onSuccess {
-                                exported = it
-                                note = "exported ${it.path} · ${Stats.bytes(it.bytes)}"
-                            }
-                            .onFailure { note = "could not write the file" }
-                        exporting = false
-                    }
-                },
+                onClick = { write("zip") { Workbook.bundle(context) } },
             )
             GlassButton(
                 label = "sheet only",
                 enabled = !exporting,
                 modifier = Modifier.weight(1f),
-                onClick = {
-                    exporting = true
-                    scope.launch {
-                        runCatching { Workbook.export(context) }
-                            .onSuccess {
-                                exported = it
-                                note = "exported ${it.path} · ${Stats.bytes(it.bytes)}"
-                            }
-                            .onFailure { note = "could not write the file" }
-                        exporting = false
-                    }
-                },
+                onClick = { write("sheet") { Workbook.export(context) } },
             )
         }
         exported?.let { file ->

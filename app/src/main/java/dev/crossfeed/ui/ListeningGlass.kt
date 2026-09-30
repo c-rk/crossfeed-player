@@ -385,7 +385,15 @@ private fun ServicePill() {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(glass.accent))
-        Text(Accents.nameOf(Look.lead), style = Type.metaStrong, color = glass.t2, maxLines = 1)
+        // the same source the colour comes from: whatever is playing, else the lead route
+        val context = LocalContext.current
+        val playing = dev.crossfeed.core.history.NowPlaying.current?.takeIf { it.playing }?.source
+        Text(
+            Accents.nameOfApp(context, playing) ?: Accents.nameOf(Look.lead),
+            style = Type.metaStrong,
+            color = glass.t2,
+            maxLines = 1,
+        )
     }
 }
 
