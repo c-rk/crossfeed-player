@@ -152,7 +152,7 @@ object Publisher {
     // how often a play already on the aux is told where it has got to. it updates the row it
     // already made rather than adding another, so this costs a write and not a post, and the
     // ring around someone only moves as often as this fires
-    private const val REPUSH_MS = 45_000L
+    private const val REPUSH_MS = 30_000L
     private const val GENERATION = "v2"
     private const val MISS = "miss:"
     private const val MISS_HOLDS_MS = 7L * 24 * 3600_000

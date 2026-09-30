@@ -1,13 +1,16 @@
 package dev.crossfeed.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -38,7 +41,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.crossfeed.core.Router
@@ -191,27 +193,39 @@ private fun ago(days: Int): String = when {
     else -> "a week ago today"
 }
 
-private val WEEKS = 53
-
 /**
- * A year of days, a square each. A day with a mood noted wears that mood; a day without one is
- * grey, darker the longer you listened. Tapping a square says what that day was.
+ * Every day the diary has, as one square that keeps dividing.
+ *
+ * The first day is the whole square. Days two to four split it in four, and each time it outgrows
+ * itself the whole thing shrinks into its top left quarter and the new days fill the other three.
+ * Days are laid in that same order, a Z within a Z, which is what lets the old square survive
+ * intact inside the new one rather than reflowing. Each time the card appears it grows from the
+ * single square to where the diary is now, so the shrinking is something you see.
+ *
+ * A day with a mood noted wears that mood; a day without one is grey, deeper the longer you
+ * listened. Tapping a square says what that day was.
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WeatherCard() {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val version = Feelings.version
 
-    val start = remember { firstMonday() }
     var days by remember { mutableStateOf<Map<String, HistoryDb.Weather>>(emptyMap()) }
+    var first by remember { mutableStateOf<String?>(null) }
     var picked by remember { mutableStateOf(Days.of(System.currentTimeMillis())) }
     var top by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(version) {
-        days = withContext(Dispatchers.IO) {
-            runCatching { HistoryDb.get(context).weather(Days.of(start.timeInMillis)) }.getOrDefault(emptyMap())
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val db = HistoryDb.get(context)
+                val all = db.weather("0")
+                // the square starts on the first day anything was played or felt
+                first = all.keys.minOrNull()
+                days = all
+            }
         }
     }
     LaunchedEffect(picked, version) {
@@ -219,15 +233,22 @@ fun WeatherCard() {
     }
 
     val today = Days.of(System.currentTimeMillis())
+    val order = remember(first, today) { first?.let { between(it, today) } ?: listOf(today) }
+    // how many times the square has divided: enough quarters, of quarters, to hold every day
+    val level = remember(order.size) { levelFor(order.size) }
+    val grown = remember { Animatable(0f) }
+    LaunchedEffect(level) {
+        grown.animateTo(level.toFloat(), tween(durationMillis = 500 + 260 * level, easing = FastOutSlowInEasing))
+    }
+
     val peak = days.values.maxOfOrNull { it.listenedMs }?.coerceAtLeast(1L) ?: 1L
-    val grid = remember(start) { (0 until WEEKS * 7).map { dayAt(start, it) } }
     val felt = Moods.all.filter { mood -> days.values.any { it.mood == mood.name } }
 
     Spacer(Modifier.height(Space.small))
     GlassCard(padding = Space.medium) {
         Text("the weather", style = Type.section, color = glass.t1)
         Text(
-            "a year of listening, a square a day. a noted mood colours its day.",
+            "every day the diary has, one square that keeps dividing. a noted mood colours its day.",
             style = Type.note,
             color = glass.t3,
             modifier = Modifier.padding(top = 2.dp, bottom = Space.small),
@@ -244,44 +265,47 @@ fun WeatherCard() {
             color = glass.t2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(bottom = 6.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
         )
 
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val density = LocalDensity.current
-            val gap = with(density) { 2.dp.toPx() }
-            val cell = (with(density) { maxWidth.toPx() } - gap * (WEEKS - 1)) / WEEKS
-            val height = with(density) { (cell * 7 + gap * 6).toDp() }
-            val empty = glass.t1.copy(alpha = 0.06f)
-            val ink = glass.t1
-            val ring = glass.t1
-            Canvas(
-                Modifier
-                    .fillMaxWidth()
-                    .height(height)
-                    .pointerInput(grid) {
-                        detectTapGestures { at ->
-                            val column = (at.x / (cell + gap)).toInt().coerceIn(0, WEEKS - 1)
-                            val row = (at.y / (cell + gap)).toInt().coerceIn(0, 6)
-                            val day = grid[column * 7 + row]
-                            if (day <= today) picked = day
-                        }
-                    },
-            ) {
-                val radius = CornerRadius(cell * 0.22f)
-                grid.forEachIndexed { index, day ->
-                    if (day > today) return@forEachIndexed
-                    val weather = days[day]
-                    val color = moodColor(weather?.mood)
-                        ?: weather?.listenedMs?.takeIf { it > 0 }
-                            ?.let { ink.copy(alpha = 0.12f + 0.5f * (it.toFloat() / peak)) }
-                        ?: empty
-                    val topLeft = Offset((index / 7) * (cell + gap), (index % 7) * (cell + gap))
-                    drawRoundRect(color, topLeft, Size(cell, cell), radius)
-                    if (day == picked) {
-                        drawRoundRect(ring, topLeft, Size(cell, cell), radius, style = Stroke(width = gap))
+        val empty = glass.t1.copy(alpha = 0.06f)
+        val ink = glass.t1
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clipToBounds()
+                .pointerInput(order, level) {
+                    detectTapGestures { at ->
+                        // taps are read against the square as it finally stands
+                        val cell = size.width.toFloat() / (1 shl level)
+                        val x = (at.x / cell).toInt()
+                        val y = (at.y / cell).toInt()
+                        val index = interleave(x, y)
+                        order.getOrNull(index)?.let { picked = it }
                     }
-                }
+                },
+        ) {
+            val side = size.width
+            // laid out at the final division, then seen through a zoom that starts on the first
+            // square alone and pulls back until the whole diary fits
+            val zoom = Math.pow(2.0, (level - grown.value).toDouble()).toFloat()
+            val cell = side / (1 shl level) * zoom
+            val gap = (cell * 0.1f).coerceAtMost(3.dp.toPx())
+            val radius = CornerRadius((cell - gap) * 0.2f)
+            order.forEachIndexed { index, day ->
+                val x = spread(index) * cell
+                val y = spread(index shr 1) * cell
+                if (x >= side || y >= side) return@forEachIndexed
+                val weather = days[day]
+                val color = moodColor(weather?.mood)
+                    ?: weather?.listenedMs?.takeIf { it > 0 }
+                        ?.let { ink.copy(alpha = 0.12f + 0.5f * (it.toFloat() / peak)) }
+                    ?: empty
+                val topLeft = Offset(x + gap / 2, y + gap / 2)
+                val box = Size(cell - gap, cell - gap)
+                drawRoundRect(color, topLeft, box, radius)
+                if (day == picked) drawRoundRect(ink, topLeft, box, radius, style = Stroke(width = gap.coerceAtLeast(1.5f)))
             }
         }
 
@@ -303,16 +327,49 @@ fun WeatherCard() {
     }
 }
 
-/** The monday that starts the fifty three weeks ending with this one. */
-private fun firstMonday(): Calendar = Calendar.getInstance().apply {
-    set(Calendar.HOUR_OF_DAY, 12)
-    set(Calendar.MINUTE, 0)
-    val back = (get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
-    add(Calendar.DAY_OF_YEAR, -back - (WEEKS - 1) * 7)
+/** Divisions needed to hold this many days: one square holds one, then four, sixteen, sixty four. */
+private fun levelFor(count: Int): Int {
+    var level = 0
+    while ((1L shl (2 * level)) < count) level++
+    return level
 }
 
-private fun dayAt(start: Calendar, offset: Int): String =
-    Days.of((start.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, offset) }.timeInMillis)
+/** A day's place in the Z order, split back into its column (even bits) or row (odd bits). */
+private fun spread(index: Int): Int {
+    var out = 0
+    var bit = 0
+    var rest = index
+    while (rest != 0) {
+        if (rest and 1 != 0) out = out or (1 shl bit)
+        rest = rest shr 2
+        bit++
+    }
+    return out
+}
+
+/** The other way round: a column and a row back to the day's place in the order. */
+private fun interleave(x: Int, y: Int): Int {
+    var out = 0
+    for (bit in 0 until 16) {
+        out = out or (((x shr bit) and 1) shl (2 * bit)) or (((y shr bit) and 1) shl (2 * bit + 1))
+    }
+    return out
+}
+
+/** Every day from the first to the last, both included. */
+private fun between(first: String, last: String): List<String> {
+    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val start = runCatching { format.parse(first)!! }.getOrNull() ?: return listOf(last)
+    val calendar = Calendar.getInstance().apply { time = start; set(Calendar.HOUR_OF_DAY, 12) }
+    val out = mutableListOf<String>()
+    while (out.size < 20_000) {
+        val day = Days.of(calendar.timeInMillis)
+        if (day > last) break
+        out.add(day)
+        calendar.add(Calendar.DAY_OF_YEAR, 1)
+    }
+    return out.ifEmpty { listOf(last) }
+}
 
 private fun pretty(day: String): String = runCatching {
     val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day)!!
