@@ -73,7 +73,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun SocialLegacy() {
+fun SocialLegacy(scrollable: Boolean = true) {
     val context = LocalContext.current
     val glass = LocalGlass.current
     val scope = rememberCoroutineScope()
@@ -175,9 +175,12 @@ fun SocialLegacy() {
         }
     }
 
+    // a scroll inside a scroll is measured against unbounded height and throws, so a host that
+    // already scrolls asks for this to stay put
+    val scroll = rememberScrollState()
     Column(
         Modifier
-            .verticalScroll(rememberScrollState())
+            .then(if (scrollable) Modifier.verticalScroll(scroll) else Modifier)
             .padding(horizontal = Space.large),
     ) {
         Spacer(Modifier.height(Space.medium))

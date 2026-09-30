@@ -123,7 +123,7 @@ fun SocialScreen(visible: Boolean = true) {
                 color = glass.t3,
                 modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
             )
-            SocialLegacy()
+            SocialLegacy(scrollable = false)
         }
         return
     }
