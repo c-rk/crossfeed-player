@@ -210,3 +210,37 @@ fun SourceIcon(pkg: String, size: androidx.compose.ui.unit.Dp = 18.dp) {
         }
     }
 }
+
+/**
+ * How long somebody actually sat with a song, rather than how long the song is.
+ *
+ * Minutes and seconds up to an hour and hours and minutes past it, which only happens when a
+ * session ran long or an app reported one play for a whole album. A play too short to round to a
+ * second says nothing at all, since a bare 0:00 on a row is noise rather than information.
+ */
+fun listenedFor(listenedMs: Long): String? {
+    val total = listenedMs / 1000
+    if (total < 1) return null
+    val hours = total / 3600
+    val minutes = (total % 3600) / 60
+    val seconds = total % 60
+    return if (hours > 0) {
+        "${hours}h ${minutes}m"
+    } else {
+        "$minutes:" + seconds.toString().padStart(2, '0')
+    }
+}
+
+/**
+ * The day and the time of a play. The year is left off when it is this one, because a diary is
+ * mostly read close to when it was written and the year is the part you already know.
+ */
+fun stampOf(millis: Long): String {
+    val locale = java.util.Locale.getDefault()
+    val then = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+    val thisYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+    val pattern = if (then.get(java.util.Calendar.YEAR) == thisYear) "d MMM, HH:mm" else "d MMM yyyy, HH:mm"
+    return java.text.SimpleDateFormat(pattern, locale)
+        .format(java.util.Date(millis))
+        .lowercase(locale)
+}

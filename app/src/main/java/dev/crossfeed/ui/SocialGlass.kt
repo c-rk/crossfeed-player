@@ -123,7 +123,7 @@ fun SocialScreen(visible: Boolean = true) {
                 color = glass.t3,
                 modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
             )
-            SocialLegacy()
+            SocialLegacy(scrollable = false)
         }
         return
     }
@@ -517,6 +517,11 @@ private fun FeedRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // how long they stayed with it. on its own line, because the line above is already
+                // three things long and a name can be any length at all
+                listenedFor(post.listenedMs)?.let {
+                    Text("listened $it", style = Type.stamp, color = glass.t3, maxLines = 1)
+                }
             }
             Spacer(Modifier.width(Space.tight))
             Bubbles(post)
@@ -555,6 +560,9 @@ private fun FeedTile(
             color = glass.t3,
             maxLines = 1,
         )
+        listenedFor(post.listenedMs)?.let {
+            Text("listened $it", style = Type.stamp, color = glass.t3, maxLines = 1)
+        }
         Spacer(Modifier.height(5.dp))
         Bubbles(post)
         Held(holding, post, labels = false, onPick = onPick, onLet = onLet)
