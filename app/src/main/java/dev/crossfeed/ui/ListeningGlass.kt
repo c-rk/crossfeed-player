@@ -148,7 +148,6 @@ fun ListeningScreen() {
                     Spacer(Modifier.height(Space.small))
                 }
                 MoodCard(deck)
-                Spacer(Modifier.height(Space.small))
                 Row(
                     Modifier.fillMaxWidth().padding(top = Space.tight, bottom = Space.small),
                     verticalAlignment = Alignment.CenterVertically,

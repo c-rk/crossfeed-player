@@ -244,6 +244,26 @@ class HistoryDb private constructor(context: Context) :
         }
     }
 
+    /** A day by the hour: how long in each, from the running totals capture already keeps. */
+    fun hoursOf(day: String): Map<Int, Long> {
+        val out = mutableMapOf<Int, Long>()
+        readableDatabase.rawQuery(
+            "SELECT CAST(label AS INTEGER), SUM(listened_ms) FROM agg WHERE kind=? AND day=? GROUP BY label",
+            arrayOf(Kind.HOUR, day),
+        ).use { while (it.moveToNext()) out[it.getInt(0)] = it.getLong(1) }
+        return out
+    }
+
+    /** The moods noted on one day, oldest first, so a later one in the same hour wins it. */
+    fun moodsOn(day: String): List<Mood> {
+        val out = mutableListOf<Mood>()
+        readableDatabase.rawQuery(
+            "SELECT at, mood, title, artist FROM moods WHERE day = ? ORDER BY at",
+            arrayOf(day),
+        ).use { while (it.moveToNext()) out.add(Mood(it.getLong(0), it.getString(1), it.getString(2), it.getString(3))) }
+        return out
+    }
+
     fun topOfDay(day: String): Tally? =
         readableDatabase.rawQuery(
             "SELECT label, plays, listened_ms FROM agg WHERE kind=? AND day=? ORDER BY listened_ms DESC LIMIT 1",
@@ -1015,7 +1035,9 @@ class HistoryDb private constructor(context: Context) :
         private const val RESUME_WINDOW_MS = 60 * 60_000L
         private const val VERSION = 9
         private const val DAY_MS = 24 * 3600_000L
-        private const val MOOD_CORRECT_MS = 10 * 60_000L
+        // the card folds away for two minutes after a tap, so only a second tap in that same
+        // moment can be a correction; anything after it is a new mood
+        private const val MOOD_CORRECT_MS = 2 * 60_000L
 
         @Volatile
         private var instance: HistoryDb? = null
