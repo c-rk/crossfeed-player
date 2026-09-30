@@ -8,7 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -61,6 +61,7 @@ import dev.crossfeed.ui.theme.Type
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -255,19 +256,26 @@ fun WeatherCard() {
                     }
                 }
                 .pointerInput(zoom, boxes) {
-                    // one tap asks what a day was, two go into it
+                    // one tap asks what a day was, two go into it. the stock double tap detector
+                    // holds every single tap back until it is sure no second is coming, which
+                    // is a third of a second of lag on the common case. selecting is harmless, so
+                    // it happens the moment the finger lifts, and a second tap then opens
                     fun under(at: Offset) = boxes.lastOrNull {
                         it.rect.contains(Offset(at.x / size.width, at.y / size.height))
                     }
-                    detectTapGestures(
-                        onTap = { at ->
-                            under(at)?.let { box ->
-                                box.day?.takeIf { it <= today }?.let { picked = it }
-                                box.hour?.let { hour = it }
-                            }
-                        },
-                        onDoubleTap = { at -> under(at)?.let { deeper(it) } },
-                    )
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+                        under(up.position)?.let { box ->
+                            box.day?.takeIf { it <= today }?.let { picked = it }
+                            box.hour?.let { hour = it }
+                        }
+                        val again = withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
+                            awaitFirstDown(requireUnconsumed = false)
+                        } ?: return@awaitEachGesture
+                        val near = (again.position - down.position).getDistance() < viewConfiguration.touchSlop * 4
+                        if (near && waitForUpOrCancellation() != null) under(again.position)?.let { deeper(it) }
+                    }
                 }
                 .pointerInput(zoom, boxes) {
                     // two fingers only, so a one finger drag still scrolls the page
