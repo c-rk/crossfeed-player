@@ -8,11 +8,24 @@ import org.xmlpull.v1.XmlPullParser
 
 object XlsxReader {
 
-    fun sheet(input: InputStream, name: String): List<List<String?>> {
+    fun sheet(input: InputStream, name: String): List<List<String?>> = sheets(input, name)[name].orEmpty()
+
+    /** Several sheets out of one unpacking. A sheet the file does not have comes back empty. */
+    fun sheets(input: InputStream, vararg names: String): Map<String, List<List<String?>>> {
         val parts = unzip(input)
-        val path = locate(parts, name) ?: return emptyList()
-        val body = parts[path] ?: return emptyList()
-        return rows(body)
+        return names.associateWith { name ->
+            val path = locate(parts, name)
+            val body = path?.let { parts[it] }
+            // locate falls back to the first worksheet when a workbook's links are odd, which is
+            // right for plays and wrong for anything else, so only an exact name counts here
+            if (body == null || (name != "plays" && !named(parts, name))) emptyList() else rows(body)
+        }
+    }
+
+    private fun named(parts: Map<String, ByteArray>, name: String): Boolean {
+        val workbook = parts["xl/workbook.xml"]?.toString(Charsets.UTF_8) ?: return false
+        return Regex("""<sheet[^>]*name="([^"]*)"""").findAll(workbook)
+            .any { unescape(it.groupValues[1]).equals(name, ignoreCase = true) }
     }
 
     /**

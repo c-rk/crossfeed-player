@@ -53,6 +53,13 @@ object Publisher {
                         .put("durationMs", durationMs),
                 )
             }.onSuccess { response ->
+                // someone you know pressed play on the same song at almost the same moment
+                response.optJSONArray("sameSecond")?.let { matches ->
+                    for (i in 0 until matches.length()) {
+                        val match = matches.optJSONObject(i) ?: continue
+                        Notifier.sameSecond(context, match.optString("handle"), title, "$key|${startedAt / 60_000}")
+                    }
+                }
                 val postId = response.optString("id")
                 if (rowId != null && postId.isNotBlank()) {
                     runCatching { HistoryDb.get(context).linkPost(rowId, postId) }

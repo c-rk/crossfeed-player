@@ -147,6 +147,8 @@ fun ListeningScreen() {
                     LyricStrip(it) { showLyrics = true }
                     Spacer(Modifier.height(Space.small))
                 }
+                MoodCard(deck)
+                Spacer(Modifier.height(Space.small))
                 Row(
                     Modifier.fillMaxWidth().padding(top = Space.tight, bottom = Space.small),
                     verticalAlignment = Alignment.CenterVertically,
@@ -238,13 +240,16 @@ fun ListeningScreen() {
 
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
-                Spacer(Modifier.height(Space.medium))
+                Spacer(Modifier.height(Space.tight))
+                CapsuleCard()
+                Spacer(Modifier.height(Space.tight))
                 Chart("top artists", data?.artists.orEmpty())
                 Chart("most played", data?.tracks.orEmpty())
                 Chart("top albums", data?.albums.orEmpty())
                 Chart("genres", data?.genres.orEmpty())
                 Chart("where you listened", data?.sources.orEmpty()) { sourceLabel(context, it) }
                 data?.let { Habits(it) }
+                WeatherCard()
                 Spacer(Modifier.height(Space.small))
                 GlassCard(padding = Space.medium) {
                     Text("a list, made for you", style = Type.section, color = glass.t1)

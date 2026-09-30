@@ -5,6 +5,7 @@ import android.net.Uri
 import dev.crossfeed.core.export.XlsxReader.readAtMost
 import dev.crossfeed.core.history.ArtStore
 import dev.crossfeed.core.history.HistoryDb
+import dev.crossfeed.core.history.Moods
 import dev.crossfeed.core.history.Play
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -14,7 +15,7 @@ import kotlinx.coroutines.withContext
 
 object Restore {
 
-    data class Result(val added: Int, val skipped: Int, val unreadable: Int, val sleeves: Int = 0) {
+    data class Result(val added: Int, val skipped: Int, val unreadable: Int, val sleeves: Int = 0, val moods: Int = 0) {
         val rows get() = added + skipped + unreadable
     }
 
@@ -30,16 +31,16 @@ object Restore {
      */
     suspend fun fromFile(context: Context, uri: Uri): Result = withContext(Dispatchers.IO) {
         val zipped = Bundle.isBundle(context, uri)
-        var sleeves = 0
-        val rows = if (zipped) {
-            val (sheet, saved) = Bundle.read(context, uri)
-            sleeves = saved
-            sheet
+        val opened = if (zipped) {
+            Bundle.read(context, uri)
         } else {
             context.contentResolver.openInputStream(uri)
-                ?.use { XlsxReader.sheet(it, "plays") }
+                ?.use { XlsxReader.sheets(it, "plays", "moods") }
+                ?.let { Bundle.Opened(it["plays"].orEmpty(), it["moods"].orEmpty(), 0) }
                 ?: throw IllegalArgumentException("cannot open that file")
         }
+        val rows = opened.plays
+        val sleeves = opened.sleeves
         if (rows.size < 2) throw IllegalArgumentException("no plays sheet in that file")
 
         val header = rows.first().map { it?.trim()?.lowercase().orEmpty() }
@@ -109,7 +110,28 @@ object Restore {
         // folded together before any of it is counted
         db.tidy()
 
-        Result(added, skipped, unreadable, sleeves)
+        Result(added, skipped, unreadable, sleeves, moods(db, opened.moods))
+    }
+
+    /** Moods come back after the plays, so each can find the song it was noted against. */
+    private fun moods(db: HistoryDb, rows: List<List<String?>>): Int {
+        if (rows.size < 2) return 0
+        val header = rows.first().map { it?.trim()?.lowercase().orEmpty() }
+        val noted = header.indexOf("noted")
+        val mood = header.indexOf("mood")
+        if (noted < 0 || mood < 0) return 0
+        val playing = header.indexOf("playing")
+        val artist = header.indexOf("artist")
+        val moment = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+        fun cell(row: List<String?>, index: Int): String? =
+            if (index in row.indices) row[index]?.trim()?.takeIf { it.isNotEmpty() } else null
+        var brought = 0
+        for (row in rows.drop(1)) {
+            val at = cell(row, noted)?.let { runCatching { moment.parse(it) }.getOrNull() } ?: continue
+            val felt = cell(row, mood)?.takeIf { it in Moods.names } ?: continue
+            if (db.restoreMood(at.time, felt, cell(row, playing), cell(row, artist))) brought++
+        }
+        return brought
     }
 
     /** A sleeve carried in a bundle now lives in the art folder, so that is where it points. */
@@ -171,6 +193,7 @@ object Restore {
         if (result.skipped > 0) append(", skipped ${result.skipped} already here")
         if (result.unreadable > 0) append(", ${result.unreadable} unreadable")
         if (result.sleeves > 0) append(", ${result.sleeves} sleeves")
+        if (result.moods > 0) append(", ${result.moods} ${if (result.moods == 1) "mood" else "moods"}")
     }
 
     // the same ceilings the merge path uses

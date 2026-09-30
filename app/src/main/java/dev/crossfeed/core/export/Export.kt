@@ -65,6 +65,7 @@ object Workbook {
     private fun sheets(context: Context): List<Sheet> {
         val db = HistoryDb.get(context)
         val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+        val felt = db.moodsByPlay()
         val plays = db.feed(limit = 100_000).map { play ->
             listOf(
                 time.format(Date(play.startedAt)),
@@ -77,18 +78,23 @@ object Workbook {
                 play.durationMs / 1000.0,
                 if (play.durationMs > 0) play.listenedMs.toDouble() / play.durationMs else null,
                 play.artwork,
+                felt[play.id],
             )
         }
+        // to the minute is not enough to bring a mood back without mistaking two for one
+        val moment = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+        val moods = db.moods().map { listOf(moment.format(Date(it.at)), it.mood, it.title, it.artist) }
         val summary = db.summary("0")
         return listOf(
             Sheet(
                 "plays",
                 listOf(
                     "started", "title", "artist", "album", "genre", "app",
-                    "listened (s)", "length (s)", "finished", "artwork",
+                    "listened (s)", "length (s)", "finished", "artwork", "mood",
                 ),
                 plays,
             ),
+            Sheet("moods", listOf("noted", "mood", "playing", "artist"), moods),
             aggSheet(db, "by day", Kind.DAY, "day"),
             aggSheet(db, "tracks", Kind.TITLE, "track"),
             aggSheet(db, "artists", Kind.ARTIST, "artist"),

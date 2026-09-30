@@ -98,6 +98,7 @@ class HistoryDb private constructor(context: Context) :
             )
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_credit_person ON credit_people(person)")
         }
+        if (oldVersion < 9) createMoods(db)
     }
 
     private fun createAggregates(db: SQLiteDatabase) {
@@ -132,6 +133,167 @@ class HistoryDb private constructor(context: Context) :
                 "role TEXT NOT NULL, PRIMARY KEY(key, person, role))",
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_credit_person ON credit_people(person)")
+        createMoods(db)
+    }
+
+    /** Only ever added to, and only if missing, so it can run against any diary of any age. */
+    private fun createMoods(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS moods (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, " +
+                "day TEXT NOT NULL, mood TEXT NOT NULL, title TEXT, artist TEXT, play_id INTEGER)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_moods_day ON moods(day)")
+    }
+
+    data class Mood(val at: Long, val mood: String, val title: String?, val artist: String?)
+
+    /**
+     * Notes how the listener feels, against whatever is playing. A second tap within a few minutes
+     * is taken as a correction of the first rather than a change of heart, so it replaces it.
+     */
+    fun noteMood(mood: String, title: String?, artist: String?, now: Long = System.currentTimeMillis()): Mood {
+        val db = writableDatabase
+        val playId = title?.let { playingNow(it, now) }
+        val recent = db.rawQuery(
+            "SELECT id FROM moods WHERE at > ? ORDER BY at DESC LIMIT 1",
+            arrayOf((now - MOOD_CORRECT_MS).toString()),
+        ).use { if (it.moveToFirst()) it.getLong(0) else null }
+        val values = ContentValues().apply {
+            put("at", now)
+            put("day", Days.of(now))
+            put("mood", mood)
+            put("title", title)
+            put("artist", artist)
+            put("play_id", playId)
+        }
+        if (recent != null) db.update("moods", values, "id = ?", arrayOf(recent.toString()))
+        else db.insert("moods", null, values)
+        return Mood(now, mood, title, artist)
+    }
+
+    private fun playingNow(title: String, now: Long): Long? =
+        readableDatabase.rawQuery(
+            "SELECT id FROM plays WHERE title = ? AND started_at <= ? AND started_at > ? " +
+                "ORDER BY started_at DESC LIMIT 1",
+            arrayOf(title, now.toString(), (now - 3 * 3600_000L).toString()),
+        ).use { if (it.moveToFirst()) it.getLong(0) else null }
+
+    fun lastMood(): Mood? =
+        readableDatabase.rawQuery("SELECT at, mood, title, artist FROM moods ORDER BY at DESC LIMIT 1", null)
+            .use { if (it.moveToFirst()) Mood(it.getLong(0), it.getString(1), it.getString(2), it.getString(3)) else null }
+
+    fun moods(since: Long = 0): List<Mood> {
+        val out = mutableListOf<Mood>()
+        readableDatabase.rawQuery(
+            "SELECT at, mood, title, artist FROM moods WHERE at >= ? ORDER BY at DESC",
+            arrayOf(since.toString()),
+        ).use { while (it.moveToNext()) out.add(Mood(it.getLong(0), it.getString(1), it.getString(2), it.getString(3))) }
+        return out
+    }
+
+    /** The mood noted while each play was on, for the export's column. */
+    fun moodsByPlay(): Map<Long, String> {
+        val out = mutableMapOf<Long, String>()
+        readableDatabase.rawQuery(
+            "SELECT play_id, mood FROM moods WHERE play_id IS NOT NULL ORDER BY at",
+            null,
+        ).use { while (it.moveToNext()) out[it.getLong(0)] = it.getString(1) }
+        return out
+    }
+
+    /** For an import: a mood already here at the same moment is the same mood. */
+    fun restoreMood(at: Long, mood: String, title: String?, artist: String?): Boolean {
+        val exists = readableDatabase.rawQuery("SELECT 1 FROM moods WHERE at = ? LIMIT 1", arrayOf(at.toString()))
+            .use { it.moveToFirst() }
+        if (exists) return false
+        writableDatabase.insert(
+            "moods",
+            null,
+            ContentValues().apply {
+                put("at", at)
+                put("day", Days.of(at))
+                put("mood", mood)
+                put("title", title)
+                put("artist", artist)
+                put("play_id", title?.let { playingNow(it, at) })
+            },
+        )
+        return true
+    }
+
+    /** One square of the year: how long, and which mood won the day if any was noted. */
+    data class Weather(val day: String, val listenedMs: Long, val mood: String?, val moods: Int)
+
+    fun weather(sinceDay: String): Map<String, Weather> {
+        val listened = mutableMapOf<String, Long>()
+        readableDatabase.rawQuery(
+            "SELECT day, SUM(listened_ms) FROM agg WHERE kind=? AND day>=? GROUP BY day",
+            arrayOf(Kind.DAY, sinceDay),
+        ).use { while (it.moveToNext()) listened[it.getString(0)] = it.getLong(1) }
+        // the most noted mood of the day, and the latest of those when two tie
+        val felt = mutableMapOf<String, Pair<String, Int>>()
+        readableDatabase.rawQuery(
+            "SELECT day, mood, COUNT(*) n, MAX(at) last FROM moods WHERE day>=? GROUP BY day, mood ORDER BY day, n, last",
+            arrayOf(sinceDay),
+        ).use { while (it.moveToNext()) felt[it.getString(0)] = it.getString(1) to it.getInt(2) }
+        val counts = mutableMapOf<String, Int>()
+        readableDatabase.rawQuery("SELECT day, COUNT(*) FROM moods WHERE day>=? GROUP BY day", arrayOf(sinceDay))
+            .use { while (it.moveToNext()) counts[it.getString(0)] = it.getInt(1) }
+        return (listened.keys + felt.keys).associateWith { day ->
+            Weather(day, listened[day] ?: 0L, felt[day]?.first, counts[day] ?: 0)
+        }
+    }
+
+    fun topOfDay(day: String): Tally? =
+        readableDatabase.rawQuery(
+            "SELECT label, plays, listened_ms FROM agg WHERE kind=? AND day=? ORDER BY listened_ms DESC LIMIT 1",
+            arrayOf(Kind.TITLE, day),
+        ).use { if (it.moveToFirst()) Tally(it.getString(0), it.getInt(1), it.getLong(2)) else null }
+
+    data class Capsule(
+        val daysAgo: Int,
+        val title: String,
+        val artist: String?,
+        val artwork: String?,
+        val plays: Int,
+        val listenedMs: Long,
+        val weekMs: Long,
+    )
+
+    /**
+     * What was on repeat this week, a while back. It reaches as far as the diary goes: a year if
+     * there is a year to look at, otherwise six months, a month, a week.
+     */
+    fun capsule(now: Long = System.currentTimeMillis()): Capsule? {
+        for (daysAgo in listOf(365, 182, 30, 7)) {
+            val middle = now - daysAgo * DAY_MS
+            val from = (middle - 3 * DAY_MS).toString()
+            val to = (middle + 3 * DAY_MS).toString()
+            val week = readableDatabase.rawQuery(
+                "SELECT IFNULL(SUM(listened_ms),0) FROM plays WHERE hidden = 0 AND started_at BETWEEN ? AND ?",
+                arrayOf(from, to),
+            ).use { if (it.moveToFirst()) it.getLong(0) else 0L }
+            if (week <= 0) continue
+            readableDatabase.rawQuery(
+                "SELECT title, artist, MAX(artwork), COUNT(*) n, SUM(listened_ms) ms FROM plays " +
+                    "WHERE hidden = 0 AND started_at BETWEEN ? AND ? " +
+                    "GROUP BY LOWER(title), LOWER(IFNULL(artist,'')) ORDER BY n DESC, ms DESC LIMIT 1",
+                arrayOf(from, to),
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    return Capsule(
+                        daysAgo,
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getInt(3),
+                        cursor.getLong(4),
+                        week,
+                    )
+                }
+            }
+        }
+        return null
     }
 
     data class CachedLyrics(
@@ -851,7 +1013,9 @@ class HistoryDb private constructor(context: Context) :
     companion object {
         private const val NAME = "listening.db"
         private const val RESUME_WINDOW_MS = 60 * 60_000L
-        private const val VERSION = 8
+        private const val VERSION = 9
+        private const val DAY_MS = 24 * 3600_000L
+        private const val MOOD_CORRECT_MS = 10 * 60_000L
 
         @Volatile
         private var instance: HistoryDb? = null
