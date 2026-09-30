@@ -152,9 +152,26 @@ object Accents {
     fun ofApp(context: Context, pkg: String?): Color? {
         if (pkg.isNullOrBlank()) return null
         Platform.entries.firstOrNull { it.pkg == pkg }?.let { return of(it.id) }
-        if (pkg == context.packageName) return null
+        // crossfeed playing your own files is the on device colour, so the pill's name and its
+        // colour can never disagree
+        if (pkg == context.packageName) return onDevice
         return remembered.getOrPut(pkg) { appAccent(context, pkg) }
     }
+
+    /** The name to go with ofApp's colour: the service, the app's own label, or on device. */
+    fun nameOfApp(context: Context, pkg: String?): String? {
+        if (pkg.isNullOrBlank()) return null
+        Platform.entries.firstOrNull { it.pkg == pkg }?.let { return it.label }
+        if (pkg == context.packageName) return "on device"
+        return labels.getOrPut(pkg) {
+            runCatching {
+                val manager = context.packageManager
+                manager.getApplicationLabel(manager.getApplicationInfo(pkg, 0)).toString().lowercase()
+            }.getOrNull()
+        }
+    }
+
+    private val labels = mutableMapOf<String, String?>()
 
     private val remembered = mutableMapOf<String, Color?>()
 

@@ -147,6 +147,7 @@ fun ListeningScreen() {
                     LyricStrip(it) { showLyrics = true }
                     Spacer(Modifier.height(Space.small))
                 }
+                MoodCard(deck)
                 Row(
                     Modifier.fillMaxWidth().padding(top = Space.tight, bottom = Space.small),
                     verticalAlignment = Alignment.CenterVertically,
@@ -238,13 +239,16 @@ fun ListeningScreen() {
 
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
-                Spacer(Modifier.height(Space.medium))
+                Spacer(Modifier.height(Space.tight))
+                CapsuleCard()
+                Spacer(Modifier.height(Space.tight))
                 Chart("top artists", data?.artists.orEmpty())
                 Chart("most played", data?.tracks.orEmpty())
                 Chart("top albums", data?.albums.orEmpty())
                 Chart("genres", data?.genres.orEmpty())
                 Chart("where you listened", data?.sources.orEmpty()) { sourceLabel(context, it) }
                 data?.let { Habits(it) }
+                WeatherCard()
                 Spacer(Modifier.height(Space.small))
                 GlassCard(padding = Space.medium) {
                     Text("a list, made for you", style = Type.section, color = glass.t1)
@@ -381,7 +385,15 @@ private fun ServicePill() {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(glass.accent))
-        Text(Accents.nameOf(Look.lead), style = Type.metaStrong, color = glass.t2, maxLines = 1)
+        // the same source the colour comes from: whatever is playing, else the lead route
+        val context = LocalContext.current
+        val playing = dev.crossfeed.core.history.NowPlaying.current?.takeIf { it.playing }?.source
+        Text(
+            Accents.nameOfApp(context, playing) ?: Accents.nameOf(Look.lead),
+            style = Type.metaStrong,
+            color = glass.t2,
+            maxLines = 1,
+        )
     }
 }
 

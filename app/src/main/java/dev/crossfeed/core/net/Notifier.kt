@@ -17,6 +17,7 @@ object Notifier {
     private const val TOGETHER_CHANNEL = "together"
     private const val ID = 4801
     private const val TOGETHER_ID = 4802
+    private const val SAME_ID = 4803
     private const val ACCENT = 0xFFCBF56A.toInt()
     private var lastSeen = 0L
 
@@ -64,6 +65,32 @@ object Notifier {
             .setAutoCancel(true)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(TOGETHER_ID, notification) }
+    }
+
+    private val synced = mutableSetOf<String>()
+
+    /** The same song, started within seconds of each other. Said once per song per person. */
+    fun sameSecond(context: Context, handle: String, title: String, key: String) {
+        if (handle.isBlank() || !synced.add("$handle|$key")) return
+        togetherChannel(context)
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val open = PendingIntent.getActivity(
+            context,
+            2,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val body = "you and @$handle pressed play on $title at the same moment"
+        val notification = NotificationCompat.Builder(context, TOGETHER_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_crossfeed)
+            .setColor(ACCENT)
+            .setContentTitle("same song, same second")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(SAME_ID, notification) }
     }
 
     suspend fun poll(context: Context) {

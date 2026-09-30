@@ -79,7 +79,7 @@ object Bundle {
      * Reads an archive back: the sleeves go to the art folder first, so that by the time the
      * sheet is read every path it names already exists.
      */
-    fun read(context: Context, uri: Uri): Pair<List<List<String?>>, Int> {
+    fun read(context: Context, uri: Uri): Opened {
         var sheet: ByteArray? = null
         var sleeves = 0
 
@@ -108,9 +108,11 @@ object Bundle {
         }
 
         val bytes = sheet ?: throw IllegalArgumentException("no spreadsheet inside that zip")
-        val rows = bytes.inputStream().use { XlsxReader.sheet(it, "plays") }
-        return rows to sleeves
+        val found = bytes.inputStream().use { XlsxReader.sheets(it, "plays", "moods") }
+        return Opened(found["plays"].orEmpty(), found["moods"].orEmpty(), sleeves)
     }
+
+    data class Opened(val plays: List<List<String?>>, val moods: List<List<String?>>, val sleeves: Int)
 
     /** Pulls just the diary out of an archive, for a restore rather than a merge. */
     fun database(context: Context, uri: Uri): ByteArray? {

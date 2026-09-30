@@ -53,6 +53,13 @@ object Publisher {
                         .put("durationMs", durationMs),
                 )
             }.onSuccess { response ->
+                // someone you know pressed play on the same song at almost the same moment
+                response.optJSONArray("sameSecond")?.let { matches ->
+                    for (i in 0 until matches.length()) {
+                        val match = matches.optJSONObject(i) ?: continue
+                        Notifier.sameSecond(context, match.optString("handle"), title, "$key|${startedAt / 60_000}")
+                    }
+                }
                 val postId = response.optString("id")
                 if (rowId != null && postId.isNotBlank()) {
                     runCatching { HistoryDb.get(context).linkPost(rowId, postId) }
@@ -145,7 +152,7 @@ object Publisher {
     // how often a play already on the aux is told where it has got to. it updates the row it
     // already made rather than adding another, so this costs a write and not a post, and the
     // ring around someone only moves as often as this fires
-    private const val REPUSH_MS = 45_000L
+    private const val REPUSH_MS = 30_000L
     private const val GENERATION = "v2"
     private const val MISS = "miss:"
     private const val MISS_HOLDS_MS = 7L * 24 * 3600_000

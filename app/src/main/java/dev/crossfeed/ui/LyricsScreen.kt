@@ -73,6 +73,15 @@ fun LyricsScreen(onClose: () -> Unit) {
         }
     }
 
+    // before anything is tapped: is there a translation for this song's language at all
+    var verdict by remember(playing?.key) { mutableStateOf<Meaning.Verdict>(Meaning.Verdict.Possible) }
+    LaunchedEffect(lyrics, playing?.key) {
+        val words = lyrics ?: return@LaunchedEffect
+        if (words.lines.isEmpty()) return@LaunchedEffect
+        verdict = Meaning.verdict(playing?.key.orEmpty(), words.lines.map { it.text }, Meaning.deviceLanguage())
+        if (verdict != Meaning.Verdict.Possible) meaning = false
+    }
+
     LaunchedEffect(meaning, lyrics, playing?.key) {
         val words = lyrics
         if (!meaning || words == null || words.lines.isEmpty()) return@LaunchedEffect
@@ -125,10 +134,15 @@ fun LyricsScreen(onClose: () -> Unit) {
                                 Toggle("original", !romanised) { romanised = false }
                                 Toggle("romanised", romanised) { romanised = true }
                             }
-                            Toggle(
-                                if (translating) "working it out…" else "what does it mean?",
-                                meaning,
-                            ) { meaning = !meaning }
+                            when (val said = verdict) {
+                                // a switch that can only ever fail is not offered as one
+                                is Meaning.Verdict.Unsupported -> Toggle("no translation for ${said.language}", false, enabled = false) {}
+                                Meaning.Verdict.Same -> Unit
+                                Meaning.Verdict.Possible -> Toggle(
+                                    if (translating) "working it out…" else "what does it mean?",
+                                    meaning,
+                                ) { meaning = !meaning }
+                            }
                         }
                         Words(
                             words,
@@ -172,18 +186,26 @@ private fun Hint(text: String) {
 }
 
 @Composable
-private fun Toggle(label: String, on: Boolean, onClick: () -> Unit) {
+private fun Toggle(label: String, on: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     val glass = LocalGlass.current
     Box(
         Modifier
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .background(
                 if (on) glass.accent.copy(alpha = 0.28f) else glass.fill,
                 androidx.compose.foundation.shape.CircleShape,
             )
             .padding(horizontal = 14.dp, vertical = 7.dp),
     ) {
-        Text(label, style = Type.footnote, color = if (on) glass.ink else glass.inkMuted)
+        Text(
+            label,
+            style = Type.footnote,
+            color = when {
+                !enabled -> glass.inkFaint.copy(alpha = 0.5f)
+                on -> glass.ink
+                else -> glass.inkMuted
+            },
+        )
     }
 }
 
