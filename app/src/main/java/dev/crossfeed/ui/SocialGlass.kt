@@ -137,6 +137,11 @@ fun SocialScreen(visible: Boolean = true) {
     var picking by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
     var sharing by remember { mutableStateOf(prefs.sharePlays) }
+    var chosen by remember { mutableStateOf<String?>(null) }
+    // someone who left the aux takes their filter with them
+    val only = chosen?.takeIf { handle -> circle.accepted.any { it.handle == handle } }
+    val pick = { handle: String -> chosen = if (only == handle) null else handle }
+    val shown = only?.let { handle -> posts.filter { it.handle == handle } } ?: posts
 
     /*
      * Keeping current costs somebody else's database, so it only happens when it is worth
@@ -212,7 +217,7 @@ fun SocialScreen(visible: Boolean = true) {
                 if (trayOpen) Spacer(Modifier.height(Space.small))
 
                 if (live.isNotEmpty()) {
-                    Listening(live)
+                    Listening(live, only, pick)
                 } else {
                     Text(
                         "nobody on the aux has anything playing right now.",
@@ -224,6 +229,8 @@ fun SocialScreen(visible: Boolean = true) {
 
                 People(
                     circle = circle,
+                    only = only,
+                    onPick = pick,
                     onAdd = { handle ->
                         scope.launch {
                             note = runCatching { Social.request(context, handle = handle) }
@@ -296,13 +303,28 @@ fun SocialScreen(visible: Boolean = true) {
                 ) {
                     Text("the feed", style = Type.section, color = glass.t1)
                     Spacer(Modifier.width(Space.tight))
-                    Text(today(posts), style = Type.stamp, color = glass.t3, modifier = Modifier.weight(1f))
+                    Text(today(shown), style = Type.stamp, color = glass.t3, modifier = Modifier.weight(1f))
+                    only?.let {
+                        Row(
+                            Modifier
+                                .clip(Shapes.chip)
+                                .background(glass.sage)
+                                .clickable { chosen = null }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text("@$it", style = Type.metaStrong, color = glass.onSage, maxLines = 1)
+                            Mark(Glyph.CLOSE, side = 8.dp, tint = glass.onSage)
+                        }
+                        Spacer(Modifier.width(Space.tight))
+                    }
                     ViewToggle(grid) {
                         grid = it
                         prefs.auxGrid = it
                     }
                 }
-                if (posts.isNotEmpty()) {
+                if (shown.isNotEmpty()) {
                     Text(
                         "tap to hear it · double tap for a banger · hold for the rest",
                         style = Type.meta,
@@ -313,10 +335,11 @@ fun SocialScreen(visible: Boolean = true) {
             }
         }
 
-        if (posts.isEmpty()) {
+        if (shown.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     when {
+                        only != null && posts.isNotEmpty() -> "nothing from @$only in the feed lately."
                         Aux.trouble != null -> Aux.trouble.orEmpty()
                         Aux.loadedAt == 0L -> "reading the aux\u2026"
                         circle.accepted.isEmpty() -> "nobody on your aux yet. add someone by handle above."
@@ -329,7 +352,7 @@ fun SocialScreen(visible: Boolean = true) {
             }
         }
 
-        items(posts, key = { it.id }) { post ->
+        items(shown, key = { it.id }) { post ->
             val holding = picking == post.id
             val onHold = { picking = if (picking == post.id) null else post.id }
             // the quick one: two taps says the thing most people want to say, without a menu
@@ -408,7 +431,7 @@ private fun Tray(alerts: Alerts, onClear: () -> Unit) {
 
 /** Who else has something on right now, as a ring around each of them. */
 @Composable
-private fun Listening(live: List<Live>) {
+private fun Listening(live: List<Live>, only: String?, onPick: (String) -> Unit) {
     val glass = LocalGlass.current
     val ring = glass.sage
     val rest = glass.t1.copy(alpha = 0.13f)
@@ -424,7 +447,10 @@ private fun Listening(live: List<Live>) {
     Row(horizontalArrangement = Arrangement.spacedBy(Space.medium)) {
         for (person in live.take(3)) {
             Column(
-                Modifier.width(70.dp),
+                Modifier
+                    .width(70.dp)
+                    .clip(Shapes.chip)
+                    .clickable { onPick(person.handle) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {
@@ -468,7 +494,12 @@ private fun Listening(live: List<Live>) {
                     }
                 }
                 Spacer(Modifier.height(5.dp))
-                Text("@" + person.handle, style = Type.metaStrong, color = glass.t1, maxLines = 1)
+                Text(
+                    "@" + person.handle,
+                    style = Type.metaStrong,
+                    color = if (only == person.handle) glass.sage else glass.t1,
+                    maxLines = 1,
+                )
                 Text(
                     person.title,
                     style = Type.meta,
@@ -664,9 +695,9 @@ private fun Held(
 }
 
 private fun people(count: Int): String = when (count) {
-    0 -> "nobody yet, no audience"
-    1 -> "one person, no audience"
-    else -> "$count people, no audience"
+    0 -> "nobody yet"
+    1 -> "one person"
+    else -> "$count people"
 }
 
 private fun today(posts: List<Post>): String {
@@ -704,6 +735,8 @@ private fun age(at: Long): String {
 @Composable
 private fun People(
     circle: Circle,
+    only: String?,
+    onPick: (String) -> Unit,
     onAdd: (String) -> Unit,
     onRespond: (Person, Boolean) -> Unit,
 ) {
@@ -793,14 +826,22 @@ private fun People(
                 horizontalArrangement = Arrangement.spacedBy(Space.tight),
             ) {
                 for (person in circle.accepted) {
+                    val picked = only == person.handle
+                    // a handle is also the way to hear only them
                     Box(
                         Modifier
                             .clip(Shapes.chip)
-                            .background(glass.sageTint)
+                            .background(if (picked) glass.sage else glass.sageTint)
                             .border(1.dp, glass.sageBorder, Shapes.chip)
+                            .clickable { onPick(person.handle) }
                             .padding(horizontal = 11.dp, vertical = 6.dp),
                     ) {
-                        Text("@" + person.handle, style = Type.chip, color = glass.sage, maxLines = 1)
+                        Text(
+                            "@" + person.handle,
+                            style = Type.chip,
+                            color = if (picked) glass.onSage else glass.sage,
+                            maxLines = 1,
+                        )
                     }
                 }
             }
