@@ -1,6 +1,7 @@
 package dev.crossfeed.core
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -60,7 +61,7 @@ object Permissions {
                 label = "keep listening in the background",
                 unlocks = "without it, many phones put crossfeed to sleep after a day and the diary " +
                     "stops noting songs. it costs almost nothing: crossfeed only wakes when music " +
-                    "changes." + brandHint(),
+                    "changes. " + batteryStep(context) + brandHint(),
                 ask = Ask.Screen(::openBatterySettings),
                 granted = unrestricted(context),
             ),
@@ -102,8 +103,25 @@ object Permissions {
      * permission the stores frown on, and the list is one tap further at most.
      */
     fun openBatterySettings(context: Context) {
+        // from android 12 the unrestricted choice lives on the app's own page, under battery,
+        // and the old list opens filtered to apps that are already exempt
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            openAppSettings(context)
+            return
+        }
         runCatching { start(context, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
             .onFailure { openAppSettings(context) }
+    }
+
+    // "allow background usage" being on is the phone's default, optimized; only unrestricted
+    // actually leaves crossfeed alone, and it was easy to stop one step short of it
+    private fun batteryStep(context: Context): String {
+        val held = context.getSystemService(ActivityManager::class.java)?.isBackgroundRestricted == true
+        return if (held) {
+            "background use is switched off for crossfeed. turn it on and choose unrestricted."
+        } else {
+            "background use is allowed but still optimized. choose unrestricted, or don't optimize."
+        }
     }
 
     // the brands that stop listeners hardest each hide a second switch of their own
