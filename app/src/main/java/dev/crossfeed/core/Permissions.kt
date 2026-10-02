@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import dev.crossfeed.core.history.ListeningService
 
@@ -28,6 +29,7 @@ object Permissions {
     const val NOTIFY = "notify"
     const val CONTROL = "control"
     const val LINKS = "links"
+    const val BACKGROUND = "background"
 
     val audio: String
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -50,6 +52,17 @@ object Permissions {
                     "for whatever is playing, in any app",
                 ask = Ask.Screen(::openListenerSettings),
                 granted = ListeningService.enabled(context),
+            ),
+        )
+        add(
+            Permit(
+                id = BACKGROUND,
+                label = "keep listening in the background",
+                unlocks = "without it, many phones put crossfeed to sleep after a day and the diary " +
+                    "stops noting songs. it costs almost nothing: crossfeed only wakes when music " +
+                    "changes." + brandHint(),
+                ask = Ask.Screen(::openBatterySettings),
+                granted = unrestricted(context),
             ),
         )
         add(
@@ -78,6 +91,29 @@ object Permissions {
 
     fun openListenerSettings(context: Context) {
         start(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+    }
+
+    fun unrestricted(context: Context): Boolean =
+        context.getSystemService(PowerManager::class.java)
+            ?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+    /**
+     * The phone's list of apps and their battery rules. Asking for the exemption directly needs a
+     * permission the stores frown on, and the list is one tap further at most.
+     */
+    fun openBatterySettings(context: Context) {
+        runCatching { start(context, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            .onFailure { openAppSettings(context) }
+    }
+
+    // the brands that stop listeners hardest each hide a second switch of their own
+    private fun brandHint(): String = when (Build.MANUFACTURER.lowercase()) {
+        "xiaomi", "redmi", "poco" -> " on this phone, also turn on autostart for crossfeed in its app info."
+        "oppo", "realme", "oneplus" -> " on this phone, also allow background activity and auto launch for crossfeed in its app info."
+        "vivo", "iqoo" -> " on this phone, also allow background power use and auto start for crossfeed."
+        "samsung" -> " on this phone, also make sure crossfeed is not in sleeping or deep sleeping apps."
+        "huawei", "honor" -> " on this phone, set crossfeed to manage manually in app launch, with all three switches on."
+        else -> ""
     }
 
     fun openLinkSettings(context: Context) {

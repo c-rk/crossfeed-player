@@ -60,7 +60,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.crossfeed.core.Permissions
 import dev.crossfeed.core.Router
+import dev.crossfeed.core.history.ListeningService
 import dev.crossfeed.core.history.Days
 import dev.crossfeed.core.history.HistoryDb
 import dev.crossfeed.core.history.Moods
@@ -236,6 +238,50 @@ private fun MoodDot(mood: Moods.Mood, index: Int, chosen: String?, onPick: () ->
         )
     }
 }
+
+/**
+ * Says so when the phone has stopped the diary from listening.
+ *
+ * Access can still be on while the listener itself has been put to sleep by a battery saver, and
+ * from the outside that looks exactly like a quiet day. Opening the app already asks for it back,
+ * so the card waits a few seconds before deciding it really is paused.
+ */
+@Composable
+fun PausedCard() {
+    val context = LocalContext.current
+    val glass = LocalGlass.current
+    var settled by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(PAUSE_GRACE_MS)
+        settled = true
+    }
+    val paused = settled && !ListeningService.connected && ListeningService.enabled(context)
+    AnimatedVisibility(paused, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+        Column {
+            GlassCard(padding = Space.medium) {
+                Text("the diary is paused", style = Type.section, color = glass.t1)
+                Text(
+                    "your phone put crossfeed to sleep, so songs are not being noted. tap resume, " +
+                        "and to stop it happening again, let crossfeed run in the background.",
+                    style = Type.note,
+                    color = glass.t2,
+                    modifier = Modifier.padding(top = 4.dp, bottom = Space.small),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.tight)) {
+                    GlassButton(label = "resume", filled = true, compact = true) {
+                        ListeningService.wake(context)
+                    }
+                    GlassButton(label = "battery settings", compact = true) {
+                        Permissions.openBatterySettings(context)
+                    }
+                }
+            }
+            Spacer(Modifier.height(Space.small))
+        }
+    }
+}
+
+private const val PAUSE_GRACE_MS = 6_000L
 
 /**
  * What you had on repeat this week, some time ago. It reaches as far back as the diary goes.

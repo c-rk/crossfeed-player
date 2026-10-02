@@ -2,12 +2,16 @@ package dev.crossfeed.core.history
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import dev.crossfeed.core.net.Notifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,15 +54,20 @@ class ListeningService : NotificationListenerService() {
         }
         ticker.removeCallbacks(heartbeat)
         ticker.postDelayed(heartbeat, TICK_MS)
+        connected = true
+        Watchdog.schedule(applicationContext)
     }
 
     override fun onListenerDisconnected() {
+        connected = false
         ticker.removeCallbacks(heartbeat)
         if (this::capture.isInitialized) capture.tick()
         sessionManager?.removeOnActiveSessionsChangedListener(listener)
         Sessions.clear()
         detachAll()
         super.onListenerDisconnected()
+        // the system lets go of a listener without ever offering it back, so it is asked for at once
+        if (enabled(this)) rebind(this)
     }
 
     private fun sync(controllers: List<MediaController>) {
@@ -94,11 +103,47 @@ class ListeningService : NotificationListenerService() {
         private const val TICK_MS = 10_000L
         private const val ALERT_EVERY = 30
 
+        /** Whether the system has the listener running in this process right now. */
+        var connected by mutableStateOf(false)
+            private set
+
         fun rebind(context: Context) {
             runCatching {
                 requestRebind(ComponentName(context, ListeningService::class.java))
             }
         }
+
+        /**
+         * Gets the listener back when the app comes to the front. A plain rebind is ignored on some
+         * phones once their battery saver has stopped it, but switching the component off and on
+         * again makes the system bind it from scratch, so that is the fallback when the first ask
+         * has not worked a few seconds later.
+         */
+        fun wake(context: Context) {
+            val app = context.applicationContext
+            if (connected || !enabled(app)) return
+            rebind(app)
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (connected || !enabled(app)) return@postDelayed
+                val component = ComponentName(app, ListeningService::class.java)
+                val pm = app.packageManager
+                runCatching {
+                    pm.setComponentEnabledSetting(
+                        component,
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP,
+                    )
+                    pm.setComponentEnabledSetting(
+                        component,
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP,
+                    )
+                }
+                rebind(app)
+            }, WAKE_CHECK_MS)
+        }
+
+        private const val WAKE_CHECK_MS = 3_000L
 
         fun enabled(context: Context): Boolean {
             val flat = Settings.Secure.getString(

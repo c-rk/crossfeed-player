@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.history.HistoryDb
 import dev.crossfeed.core.history.ListeningService
+import dev.crossfeed.core.history.Watchdog
 import dev.crossfeed.core.widget.CrossfeedWidget
 import dev.crossfeed.core.player.SourceSetup
 import dev.crossfeed.ui.CrossfeedApp
@@ -19,7 +20,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ThemeSeed.pkg = Prefs(this).primary.pkg
         SourceSetup.install()
-        if (ListeningService.enabled(this)) ListeningService.rebind(this)
+        Watchdog.schedule(this)
         // whatever the widget is showing is at most half an hour old, so opening the app
         // is the moment to put it right
         CrossfeedWidget.refresh(this)
@@ -31,5 +32,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
+    // every return to the app, not only a cold start: reopening from recents skips onCreate
+    override fun onResume() {
+        super.onResume()
+        ListeningService.wake(this)
+    }
 }

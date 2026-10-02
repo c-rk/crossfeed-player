@@ -141,6 +141,7 @@ fun ListeningScreen() {
                 Spacer(Modifier.height(Space.small))
                 StatCard(data, range, week)
                 Spacer(Modifier.height(Space.small))
+                PausedCard()
                 deck?.let {
                     NowPlayingCard(it)
                     Spacer(Modifier.height(Space.tight))
