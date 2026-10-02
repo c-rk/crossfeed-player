@@ -50,6 +50,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import dev.crossfeed.core.Prefs
 import dev.crossfeed.core.Router
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -449,8 +450,10 @@ private fun Listening(live: List<Live>, only: String?, onPick: (String) -> Unit)
             Column(
                 Modifier
                     .width(70.dp)
-                    .clip(Shapes.chip)
-                    .clickable { onPick(person.handle) },
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { onPick(person.handle) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {
